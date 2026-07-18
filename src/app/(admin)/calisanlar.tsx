@@ -1,16 +1,32 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Badge, Button, Card, EmptyState, Input, Screen, SectionTitle, colors } from '@/components/ui';
 import { USERNAME_EMAIL_DOMAIN, createTempAuthClient, supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
+const TURKISH_FOLD: Record<string, string> = {
+  ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u',
+  Ç: 'c', Ğ: 'g', İ: 'i', Ö: 'o', Ş: 's', Ü: 'u',
+};
+
+function slugifyUsername(name: string): string {
+  return name
+    .split('')
+    .map((ch) => TURKISH_FOLD[ch] ?? ch)
+    .join('')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '.')
+    .replace(/[^a-z0-9._-]/g, '');
+}
+
 export default function EmployeesScreen() {
+  const router = useRouter();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -32,13 +48,13 @@ export default function EmployeesScreen() {
   }
 
   async function handleCreate() {
-    const uname = username.trim().toLowerCase();
-    if (!fullName.trim() || !uname || password.length < 6) {
-      Alert.alert('Hata', 'Ad, kullanıcı adı ve en az 6 karakterlik şifre gerekli.');
+    const uname = slugifyUsername(fullName);
+    if (!fullName.trim() || !uname || !password) {
+      Alert.alert('Hata', 'Ad ve şifre gerekli.');
       return;
     }
-    if (!/^[a-z0-9._-]+$/.test(uname)) {
-      Alert.alert('Hata', 'Kullanıcı adı sadece küçük harf, rakam, nokta, tire içerebilir.');
+    if (password.length < 6) {
+      Alert.alert('Hata', 'Şifre en az 6 haneli olmalıdır.');
       return;
     }
     setBusy(true);
@@ -60,7 +76,6 @@ export default function EmployeesScreen() {
       return;
     }
     setFullName('');
-    setUsername('');
     setPassword('');
     Alert.alert('Tamam', `Çalışan eklendi. Giriş: ${uname} / girdiğiniz şifre`);
     await load();
@@ -88,17 +103,14 @@ export default function EmployeesScreen() {
         ListHeaderComponent={
           <Card style={{ gap: 12, marginBottom: 14 }}>
             <SectionTitle text="Yeni Çalışan Ekle" />
-            <Input label="Ad Soyad" value={fullName} onChangeText={setFullName} placeholder="ör. Ahmet Yılmaz" />
             <Input
-              label="Kullanıcı adı"
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholder="ör. ahmet"
+              label="Ad Soyad"
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="ör. Ahmet Yılmaz"
             />
             <Input
-              label="Şifre (en az 6 karakter)"
+              label="Şifre (en az 6 hane)"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -108,7 +120,10 @@ export default function EmployeesScreen() {
           </Card>
         }
         renderItem={({ item }) => (
-          <View style={styles.row}>
+          <Pressable
+            style={styles.row}
+            onPress={() => router.push({ pathname: '/(admin)/calisan-detay', params: { id: item.id } })}
+          >
             <View style={{ flex: 1, gap: 3 }}>
               <Text style={styles.rowName}>{item.full_name || '(İsimsiz)'}</Text>
               <Badge
@@ -122,7 +137,7 @@ export default function EmployeesScreen() {
                 <Switch value={item.active} onValueChange={(v) => toggleActive(item, v)} />
               </View>
             ) : null}
-          </View>
+          </Pressable>
         )}
       />
     </Screen>
