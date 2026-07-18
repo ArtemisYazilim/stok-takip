@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "stok-takip",
+    "name": "Stok Takip",
     "slug": "stok-takip",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.stoktakip.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
