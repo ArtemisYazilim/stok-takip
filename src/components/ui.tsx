@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -11,9 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { feedback } from '@/lib/feedback';
+
 export const colors = {
   primary: '#1d6ff2',
   primaryDark: '#1554b8',
+  primarySoft: '#e8f0fe',
   danger: '#d92d20',
   success: '#12805c',
   warning: '#b54708',
@@ -42,33 +47,70 @@ interface ButtonProps {
   variant?: 'primary' | 'danger' | 'ghost' | 'success';
   loading?: boolean;
   disabled?: boolean;
+  /** Basınca hafif titreşim ver (varsayılan açık). */
+  haptics?: boolean;
+  icon?: keyof typeof Ionicons.glyphMap;
   style?: ViewStyle;
 }
 
-export function Button({ title, onPress, variant = 'primary', loading, disabled, style }: ButtonProps) {
+export function Button({
+  title,
+  onPress,
+  variant = 'primary',
+  loading,
+  disabled,
+  haptics = true,
+  icon,
+  style,
+}: ButtonProps) {
   const bg =
     variant === 'primary' ? colors.primary
     : variant === 'danger' ? colors.danger
     : variant === 'success' ? colors.success
     : 'transparent';
   const isDisabled = disabled || loading;
+  const fg = variant === 'ghost' ? colors.primary : '#fff';
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        if (haptics) feedback.press();
+        onPress();
+      }}
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: bg, opacity: isDisabled ? 0.5 : pressed ? 0.8 : 1 },
+        { backgroundColor: bg, opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1 },
         variant === 'ghost' && styles.buttonGhost,
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'ghost' ? colors.primary : '#fff'} />
+        <ActivityIndicator color={fg} />
       ) : (
-        <Text style={[styles.buttonText, variant === 'ghost' && { color: colors.primary }]}>{title}</Text>
+        <View style={styles.buttonInner}>
+          {icon ? <Ionicons name={icon} size={18} color={fg} /> : null}
+          <Text style={[styles.buttonText, { color: fg }]}>{title}</Text>
+        </View>
       )}
     </Pressable>
+  );
+}
+
+/** Ürün fotoğrafı küçük resmi; fotoğraf yoksa kutu ikonu gösterir. */
+export function ProductThumb({ uri, size = 48 }: { uri?: string | null; size?: number }) {
+  return (
+    <View style={[styles.thumb, { width: size, height: size, borderRadius: size * 0.22 }]}>
+      {uri ? (
+        <Image
+          source={{ uri }}
+          style={{ width: size, height: size }}
+          contentFit="cover"
+          transition={150}
+        />
+      ) : (
+        <Ionicons name="cube-outline" size={Math.round(size * 0.5)} color={colors.textMuted} />
+      )}
+    </View>
   );
 }
 
@@ -133,10 +175,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
   },
+  buttonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   buttonText: {
     color: '#fff',
     fontWeight: '600',
     fontSize: 15,
+  },
+  thumb: {
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   inputLabel: {
     fontSize: 13,

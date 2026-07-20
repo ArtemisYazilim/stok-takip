@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Card, Input, Screen, SectionTitle, colors } from '@/components/ui';
+import { feedback } from '@/lib/feedback';
 import { formatDateTime, formatQty, parseNumberInput } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import type { Product } from '@/lib/types';
@@ -39,9 +40,11 @@ export default function ShiftScreen() {
     const { error } = await supabase.from('shifts').insert({ profile_id: session.user.id });
     setBusy(false);
     if (error) {
+      feedback.error();
       Alert.alert('Hata', error.message);
       return;
     }
+    feedback.success();
     await reload();
   }
 
@@ -57,6 +60,7 @@ export default function ShiftScreen() {
     if (!shift) return;
     for (const p of products) {
       if (parseNumberInput(counts[p.id] ?? '') === null) {
+        feedback.error();
         Alert.alert('Hata', `"${p.name}" için geçerli bir sayım girin.`);
         return;
       }
@@ -80,6 +84,7 @@ export default function ShiftScreen() {
     const { error: countError } = await supabase.from('shift_counts').insert(rows);
     if (countError) {
       setBusy(false);
+      feedback.error();
       Alert.alert('Hata', countError.message);
       return;
     }
@@ -90,11 +95,14 @@ export default function ShiftScreen() {
       .eq('id', shift.id);
     setBusy(false);
     if (endError) {
+      feedback.error();
       Alert.alert('Hata', endError.message);
       return;
     }
 
     const diffs = rows.filter((r) => r.counted_qty !== r.expected_qty);
+    if (diffs.length === 0) feedback.success();
+    else feedback.warning();
     Alert.alert(
       'Vardiya kapatıldı',
       diffs.length === 0

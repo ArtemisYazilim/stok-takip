@@ -3,7 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Badge, Button, EmptyState, Screen, colors } from '@/components/ui';
+import { Badge, Button, EmptyState, ProductThumb, Screen, colors } from '@/components/ui';
 import { formatMoney, formatQty } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import type { Product } from '@/lib/types';
@@ -66,11 +66,13 @@ export default function AdminStockScreen() {
               style={styles.row}
               onPress={() => router.push({ pathname: '/(admin)/urun', params: { id: item.id } })}
             >
+              <ProductThumb uri={item.image_url} size={48} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={styles.rowName}>{item.name}</Text>
-                <Text style={styles.rowPrice}>{formatMoney(item.sale_price)}</Text>
+                <Text style={styles.rowPrice}>Fiyat {formatMoney(item.sale_price)}</Text>
               </View>
-              <View style={{ alignItems: 'flex-end', gap: 4 }}>
+              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                <Text style={styles.rowStockLabel}>Stok</Text>
                 <Text style={[styles.rowStock, low && { color: colors.danger }]}>
                   {formatQty(item.stock)} {item.unit}
                 </Text>
@@ -130,6 +132,13 @@ const styles = StyleSheet.create({
   rowPrice: {
     fontSize: 13,
     color: colors.textMuted,
+  },
+  rowStockLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   rowStock: {
     fontSize: 16,

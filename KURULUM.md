@@ -2,15 +2,18 @@
 
 İşletme yan satış (motor yağı, antifriz vb.) stok ve vardiya takibi uygulaması.
 
-- **Admin**: stok görür, ürün ekler, alım girer, stok düzeltir, vardiya raporlarını ve hareket geçmişini izler, çalışan hesabı açar.
+- **Admin**: stok görür, ürüne **fotoğraf** ekler, alım girer, stok düzeltir, vardiya raporlarını ve hareket geçmişini izler, çalışan hesabı açar. Vardiya kapanınca **Bildirim** sekmesine (fark çıksa da çıkmasa da) canlı mesaj düşer.
 - **Çalışan**: vardiya başlatır, satış yapar (stoktan otomatik düşer), vardiya sonunda sayım yapıp devreder. Sayım ile sistem stoku tutmazsa fark admin panelinde görünür.
+- **Geri bildirim**: satış, vardiya kapatma ve hatalarda ses + telefon titreşimi (haptics) verilir.
 
 ## 1. Supabase projesi oluştur (bir kere yapılır)
 
 1. https://supabase.com → ücretsiz hesap aç → **New project**.
 2. Proje adı: `stok-takip`, bölge: Frankfurt (Türkiye'ye en yakın), güçlü bir veritabanı şifresi belirle (not al).
-3. Proje açılınca sol menüden **SQL Editor** → **New query** → bu depodaki `supabase/schema.sql` dosyasının **tamamını** yapıştır → **Run**. Hata vermeden bitmeli.
+3. Proje açılınca sol menüden **SQL Editor** → **New query** → bu depodaki `supabase/schema.sql` dosyasının **tamamını** yapıştır → **Run**. Hata vermeden bitmeli. (Bu dosya ürün fotoğrafı deposu ve bildirimleri de kurar.)
 4. Sol menü **Authentication → Sign In / Up → Email** bölümünde **"Confirm email" ayarını KAPAT** (çalışan hesapları sahte e-posta kullandığı için onay maili gidemez).
+
+> **Zaten kurulu projeniz varsa** (schema.sql'i daha önce çalıştırdıysanız): fotoğraf + bildirim özelliklerini eklemek için SQL Editor'de **`supabase/002_gelistirmeler.sql`** dosyasının tamamını çalıştırın. Tekrar çalıştırılabilir, mevcut veriye dokunmaz.
 
 ## 2. Admin hesabını aç
 

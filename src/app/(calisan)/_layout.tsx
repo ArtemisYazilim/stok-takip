@@ -15,8 +15,11 @@ export default function WorkerLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        animation: 'shift',
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarActiveBackgroundColor: colors.primarySoft,
+        tabBarLabelStyle: { fontWeight: '600' },
       }}
     >
       <Tabs.Screen

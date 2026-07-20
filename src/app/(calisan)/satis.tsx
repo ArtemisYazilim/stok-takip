@@ -3,7 +3,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button, Card, EmptyState, Screen, colors } from '@/components/ui';
+import { Button, Card, EmptyState, ProductThumb, Screen, colors } from '@/components/ui';
+import { feedback } from '@/lib/feedback';
 import { formatMoney, formatQty } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import type { Product } from '@/lib/types';
@@ -62,10 +63,12 @@ export default function SaleScreen() {
     const { error } = await supabase.from('stock_movements').insert(rows);
     setBusy(false);
     if (error) {
+      feedback.error();
       Alert.alert('Hata', error.message.includes('Yetersiz stok') ? 'Yetersiz stok!' : error.message);
       await load();
       return;
     }
+    feedback.sale();
     Alert.alert('Tamam', `Satış kaydedildi: ${formatMoney(total)}`);
     setCart({});
     await load();
@@ -126,6 +129,7 @@ export default function SaleScreen() {
           const out = item.stock <= 0;
           return (
             <View style={[styles.row, out && { opacity: 0.5 }]}>
+              <ProductThumb uri={item.image_url} size={48} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={styles.rowName}>{item.name}</Text>
                 <Text style={styles.rowMeta}>
@@ -135,7 +139,10 @@ export default function SaleScreen() {
               <View style={styles.stepper}>
                 <Pressable
                   style={styles.stepBtn}
-                  onPress={() => changeQty(item.id, -1, item.stock)}
+                  onPress={() => {
+                    feedback.press();
+                    changeQty(item.id, -1, item.stock);
+                  }}
                   disabled={qty === 0}
                 >
                   <Ionicons name="remove" size={20} color={qty === 0 ? colors.border : colors.primary} />
@@ -143,7 +150,10 @@ export default function SaleScreen() {
                 <Text style={styles.stepQty}>{qty}</Text>
                 <Pressable
                   style={styles.stepBtn}
-                  onPress={() => changeQty(item.id, 1, item.stock)}
+                  onPress={() => {
+                    feedback.tick();
+                    changeQty(item.id, 1, item.stock);
+                  }}
                   disabled={out || qty >= item.stock}
                 >
                   <Ionicons

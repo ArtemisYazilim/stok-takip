@@ -18,6 +18,20 @@ export interface Product {
   stock: number;
   min_stock: number;
   active: boolean;
+  image_url: string | null;
+  created_at: string;
+}
+
+export type NotificationType = 'shift_ok' | 'shift_diff';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  shift_id: string | null;
+  has_diff: boolean;
+  read: boolean;
   created_at: string;
 }
 

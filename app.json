@@ -33,11 +33,26 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Ürün fotoğrafı eklemek için galeriye erişim izni gerekiyor.",
+          "cameraPermission": "Ürün fotoğrafı çekmek için kamera erişimi gerekiyor."
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d9c6b372-875a-40d6-8f91-7edf872a49f3"
+      }
+    },
+    "owner": "enesahin00"
   }
 }
