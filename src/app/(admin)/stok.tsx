@@ -72,7 +72,7 @@ export default function AdminStockScreen() {
                 <Text style={styles.rowPrice}>Fiyat {formatMoney(item.sale_price)}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <Text style={styles.rowStockLabel}>Stok</Text>
+                <Text style={styles.rowStockLabel}>Kalan</Text>
                 <Text style={[styles.rowStock, low && { color: colors.danger }]}>
                   {formatQty(item.stock)} {item.unit}
                 </Text>

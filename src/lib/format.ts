@@ -21,6 +21,15 @@ export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** İki zaman arası süreyi "2 sa 15 dk" gibi verir; bitiş yoksa şimdiye kadar. */
+export function formatDuration(startIso: string, endIso?: string | null): string {
+  const end = endIso ? new Date(endIso).getTime() : Date.now();
+  const min = Math.max(0, Math.round((end - new Date(startIso).getTime()) / 60000));
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h > 0 ? `${h} sa ${m} dk` : `${m} dk`;
+}
+
 /** "12,5" gibi Türkçe ondalık girdileri sayıya çevirir; geçersizse null. */
 export function parseNumberInput(text: string): number | null {
   const normalized = text.trim().replace(',', '.');

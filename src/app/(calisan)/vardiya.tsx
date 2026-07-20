@@ -2,9 +2,9 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 
-import { Button, Card, Input, Screen, SectionTitle, colors } from '@/components/ui';
+import { Badge, Button, Card, Input, Screen, colors } from '@/components/ui';
 import { feedback } from '@/lib/feedback';
-import { formatDateTime, formatQty, parseNumberInput } from '@/lib/format';
+import { formatDateTime, formatDuration, formatQty, parseNumberInput } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import type { Product } from '@/lib/types';
 import { useAuth } from '@/providers/auth-provider';
@@ -136,10 +136,14 @@ export default function ShiftScreen() {
   if (counting) {
     return (
       <Screen>
-        <Text style={styles.title}>Devir Sayımı</Text>
-        <Text style={styles.hintPad}>
-          Rafta gerçekte kaç {'"'}adet{'"'} olduğunu sayıp yazın. Sistem stokuyla fark varsa kayda geçer.
-        </Text>
+        <View style={styles.stepHead}>
+          <Text style={styles.stepTag}>Adım 2 / 2 · Stok Sayımı</Text>
+          <Text style={styles.stepTitle}>Rafı say</Text>
+          <Text style={styles.hint}>
+            Her ürünün rafta gerçekte kaç tane olduğunu say ve karşısına yaz. Sistemdeki sayıyla
+            farklıysa kayda geçer, sonra vardiya kapanır.
+          </Text>
+        </View>
         <FlatList
           data={products}
           keyExtractor={(p) => p.id}
@@ -150,7 +154,7 @@ export default function ShiftScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowName}>{item.name}</Text>
                 <Text style={styles.hint}>
-                  sistemde: {formatQty(item.stock)} {item.unit}
+                  sistemde {formatQty(item.stock)} {item.unit} görünüyor
                 </Text>
               </View>
               <Input
@@ -163,8 +167,8 @@ export default function ShiftScreen() {
           )}
           ListFooterComponent={
             <View style={{ gap: 10, marginTop: 10 }}>
-              <Button title="Sayımı Onayla ve Vardiyayı Kapat" variant="danger" onPress={finishShift} loading={busy} />
-              <Button title="Vazgeç" variant="ghost" onPress={() => setCounting(false)} />
+              <Button title="Sayımı Bitir ve Vardiyayı Kapat" variant="danger" onPress={finishShift} loading={busy} />
+              <Button title="Geri Dön" variant="ghost" onPress={() => setCounting(false)} />
             </View>
           }
         />
@@ -176,13 +180,19 @@ export default function ShiftScreen() {
     <Screen>
       <Text style={styles.title}>Vardiya</Text>
       <View style={styles.center}>
-        <Card style={{ gap: 14, padding: 20 }}>
-          <SectionTitle text={`Açık vardiya · ${profile?.full_name ?? ''}`} />
+        <Card style={{ gap: 12, padding: 20 }}>
+          <View style={styles.openRow}>
+            <Badge text="Vardiya açık" color={colors.success} />
+            <Text style={styles.elapsed}>{formatDuration(shift.started_at)}</Text>
+          </View>
+          <Text style={styles.bigText}>{profile?.full_name ?? ''}</Text>
           <Text style={styles.hint}>Başlangıç: {formatDateTime(shift.started_at)}</Text>
+          <View style={styles.divider} />
           <Text style={styles.hint}>
-            Vardiyayı kapatmadan önce stok sayımı yapılır. Fark çıkarsa admin panelinde görünür.
+            Vardiyan bitince aşağıdaki butona bas. Önce stok sayımı yapacaksın (Adım 2/2), sonra
+            vardiya kapanır. Fark çıkarsa admin panelinde görünür.
           </Text>
-          <Button title="Vardiyayı Bitir (Sayıma Geç)" variant="danger" onPress={beginCounting} />
+          <Button title="Vardiyayı Kapat →" variant="danger" onPress={beginCounting} />
         </Card>
       </View>
     </Screen>
@@ -208,16 +218,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
+  openRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  elapsed: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 2,
+  },
+  stepHead: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 6,
+  },
+  stepTag: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  stepTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.text,
+  },
   hint: {
     fontSize: 13,
     color: colors.textMuted,
     lineHeight: 18,
-  },
-  hintPad: {
-    fontSize: 13,
-    color: colors.textMuted,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
   },
   list: {
     paddingHorizontal: 16,
