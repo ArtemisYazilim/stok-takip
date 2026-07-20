@@ -19,7 +19,6 @@ export default function ProductEditScreen() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [name, setName] = useState('');
-  const [unit, setUnit] = useState('adet');
   const [price, setPrice] = useState('');
   const [minStock, setMinStock] = useState('');
   const [initialStock, setInitialStock] = useState('');
@@ -51,7 +50,6 @@ export default function ProductEditScreen() {
         const p = data as Product;
         setProduct(p);
         setName(p.name);
-        setUnit(p.unit);
         setPrice(String(p.sale_price));
         setMinStock(String(p.min_stock));
         setActive(p.active);
@@ -116,7 +114,7 @@ export default function ProductEditScreen() {
         const stockNum = parseNumberInput(initialStock) ?? 0;
         const { data, error } = await supabase
           .from('products')
-          .insert({ name: name.trim(), unit: unit.trim() || 'adet', sale_price: priceNum, min_stock: minNum })
+          .insert({ name: name.trim(), sale_price: priceNum, min_stock: minNum })
           .select()
           .single();
         if (error) throw error;
@@ -133,7 +131,7 @@ export default function ProductEditScreen() {
       } else {
         const { error } = await supabase
           .from('products')
-          .update({ name: name.trim(), unit: unit.trim() || 'adet', sale_price: priceNum, min_stock: minNum, active })
+          .update({ name: name.trim(), sale_price: priceNum, min_stock: minNum, active })
           .eq('id', id);
         if (error) throw error;
       }
@@ -238,7 +236,6 @@ export default function ProductEditScreen() {
             </View>
           </View>
           <Input label="Ürün adı" value={name} onChangeText={setName} placeholder="ör. Motor Yağı 4L" />
-          <Input label="Birim" value={unit} onChangeText={setUnit} placeholder="adet / litre / bidon" />
           <Input
             label="Satış fiyatı (₺)"
             value={price}
@@ -273,7 +270,7 @@ export default function ProductEditScreen() {
         {!isNew && product ? (
           <>
             <Card style={{ gap: 12 }}>
-              <SectionTitle text={`Alım Ekle (mevcut: ${formatQty(product.stock)} ${product.unit})`} />
+              <SectionTitle text={`Alım Ekle (mevcut: ${formatQty(product.stock)})`} />
               <Input
                 label="Alınan miktar"
                 value={restockQty}

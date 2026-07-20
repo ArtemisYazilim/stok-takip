@@ -74,7 +74,7 @@ export default function AdminStockScreen() {
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
                 <Text style={styles.rowStockLabel}>Kalan</Text>
                 <Text style={[styles.rowStock, low && { color: colors.danger }]}>
-                  {formatQty(item.stock)} {item.unit}
+                  {formatQty(item.stock)}
                 </Text>
                 {low ? <Badge text="Stok az" color={colors.danger} /> : null}
               </View>

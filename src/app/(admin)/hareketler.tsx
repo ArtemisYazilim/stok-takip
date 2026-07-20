@@ -66,7 +66,7 @@ export default function MovementsScreen() {
                 ]}
               >
                 {item.delta > 0 ? '+' : ''}
-                {formatQty(item.delta)} {item.products?.unit ?? ''}
+                {formatQty(item.delta)}
               </Text>
               <Badge
                 text={MOVEMENT_LABELS[item.type] ?? item.type}

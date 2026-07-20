@@ -4,7 +4,7 @@ import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Button, Card, Input, Screen, colors } from '@/components/ui';
 import { feedback } from '@/lib/feedback';
-import { formatDateTime, formatDuration, formatQty, parseNumberInput } from '@/lib/format';
+import { formatDateTime, formatDuration, parseNumberInput } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import type { Product } from '@/lib/types';
 import { useAuth } from '@/providers/auth-provider';
@@ -49,10 +49,8 @@ export default function ShiftScreen() {
   }
 
   function beginCounting() {
-    // Sayım alanlarını mevcut sistem stokuyla doldur; çalışan gerçek sayıma göre düzeltir.
-    const initial: Record<string, string> = {};
-    for (const p of products) initial[p.id] = String(p.stock);
-    setCounts(initial);
+    // Sayım alanları boş başlar; çalışan her ürünü gerçekten sayıp girmeden kapatılamaz.
+    setCounts({});
     setCounting(true);
   }
 
@@ -153,9 +151,7 @@ export default function ShiftScreen() {
             <View style={styles.countRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowName}>{item.name}</Text>
-                <Text style={styles.hint}>
-                  sistemde {formatQty(item.stock)} {item.unit} görünüyor
-                </Text>
+                <Text style={styles.hint}>rafta gerçekte kaç tane var, say ve yaz</Text>
               </View>
               <Input
                 value={counts[item.id] ?? ''}

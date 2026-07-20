@@ -133,7 +133,7 @@ export default function SaleScreen() {
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={styles.rowName}>{item.name}</Text>
                 <Text style={styles.rowMeta}>
-                  {formatMoney(item.sale_price)} · stok {formatQty(item.stock)} {item.unit}
+                  {formatMoney(item.sale_price)} · stok {formatQty(item.stock)}
                 </Text>
               </View>
               <View style={styles.stepper}>

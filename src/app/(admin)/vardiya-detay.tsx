@@ -9,7 +9,6 @@ import type { Shift, ShiftCount, StockMovement } from '@/lib/types';
 
 interface SaleSummary {
   name: string;
-  unit: string;
   qty: number;
   revenue: number;
 }
@@ -40,7 +39,6 @@ export default function ShiftDetailScreen() {
       const key = m.product_id;
       const existing = byProduct.get(key) ?? {
         name: m.products?.name ?? 'Ürün',
-        unit: m.products?.unit ?? '',
         qty: 0,
         revenue: 0,
       };
@@ -82,7 +80,7 @@ export default function ShiftDetailScreen() {
               <View key={s.name} style={styles.saleRow}>
                 <Text style={styles.saleName}>{s.name}</Text>
                 <Text style={styles.saleQty}>
-                  {formatQty(s.qty)} {s.unit} · {formatMoney(s.revenue)}
+                  {formatQty(s.qty)} · {formatMoney(s.revenue)}
                 </Text>
               </View>
             ))
