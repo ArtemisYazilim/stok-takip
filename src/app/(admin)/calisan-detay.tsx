@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Button, Card, EmptyState, Screen, SectionTitle, colors } from '@/components/ui';
 import { formatDateTime, formatMoney, formatQty } from '@/lib/format';
@@ -60,29 +60,32 @@ export default function EmployeeDetailScreen() {
   const totalQty = rows.reduce((s, r) => s + r.qty, 0);
   const totalHours = rows.reduce((s, r) => s + (r.hours ?? 0), 0);
 
-  async function handleDelete() {
+  async function runDelete() {
     if (!profile) return;
-    Alert.alert(
-      'Çalışanı sil',
-      `${profile.full_name || 'Bu çalışan'} kalıcı olarak silinecek. Vardiya ve satış geçmişi de silinir. Emin misiniz?`,
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            setBusy(true);
-            const { error } = await supabase.rpc('admin_delete_employee', { target_id: profile.id });
-            setBusy(false);
-            if (error) {
-              Alert.alert('Hata', error.message);
-              return;
-            }
-            router.back();
-          },
-        },
-      ],
-    );
+    setBusy(true);
+    const { error } = await supabase.rpc('admin_delete_employee', { target_id: profile.id });
+    setBusy(false);
+    if (error) {
+      Alert.alert('Hata', error.message);
+      return;
+    }
+    router.back();
+  }
+
+  function handleDelete() {
+    if (!profile) return;
+    const message = `${profile.full_name || 'Bu çalışan'} kalıcı olarak silinecek. Vardiya ve satış geçmişi de silinir. Emin misiniz?`;
+    // Web'de Alert.alert buton onPress'i tetiklemez; window.confirm kullan.
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(message)) {
+        runDelete();
+      }
+      return;
+    }
+    Alert.alert('Çalışanı sil', message, [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Sil', style: 'destructive', onPress: runDelete },
+    ]);
   }
 
   return (
