@@ -33,7 +33,19 @@ export function createTempAuthClient() {
 /** Çalışanlar kullanıcı adıyla girer; e-posta alanına bu sahte alan adı eklenir. */
 export const USERNAME_EMAIL_DOMAIN = 'personel.local';
 
+// Hesap açılırken kullanıcı adı Türkçe karakterlerden arındırılır (bkz. slugifyUsername);
+// girişte aynı dönüşüm uygulanmazsa "İsmail" → "i̇smail" olur ve eşleşme başarısız olur.
+const TURKISH_FOLD: Record<string, string> = {
+  ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u',
+  Ç: 'c', Ğ: 'g', İ: 'i', Ö: 'o', Ş: 's', Ü: 'u',
+};
+
 export function toLoginEmail(input: string): string {
-  const trimmed = input.trim().toLowerCase();
+  const trimmed = input
+    .trim()
+    .split('')
+    .map((ch) => TURKISH_FOLD[ch] ?? ch)
+    .join('')
+    .toLowerCase();
   return trimmed.includes('@') ? trimmed : `${trimmed}@${USERNAME_EMAIL_DOMAIN}`;
 }

@@ -209,6 +209,33 @@ export default function ProductEditScreen() {
     router.back();
   }
 
+  function confirmDelete() {
+    if (!product) return;
+    feedback.warning();
+    Alert.alert(
+      'Ürünü Sil',
+      `'${product.name}' ürünü ve tüm satış/alım geçmişi kalıcı olarak silinecek. Bu işlem geri alınamaz.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Sil', style: 'destructive', onPress: handleDelete },
+      ],
+    );
+  }
+
+  async function handleDelete() {
+    if (!id) return;
+    setBusy(true);
+    const { error } = await supabase.rpc('admin_delete_product', { target_id: id });
+    setBusy(false);
+    if (error) {
+      feedback.error();
+      Alert.alert('Hata', error.message);
+      return;
+    }
+    feedback.success();
+    router.back();
+  }
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
@@ -295,6 +322,14 @@ export default function ProductEditScreen() {
               />
               <Button title="Düzelt" variant="danger" onPress={handleAdjust} loading={busy} />
             </Card>
+
+            <Button
+              title="Ürünü Sil"
+              variant="danger"
+              icon="trash-outline"
+              onPress={confirmDelete}
+              loading={busy}
+            />
           </>
         ) : null}
 
