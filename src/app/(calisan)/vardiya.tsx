@@ -1,8 +1,9 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Button, Card, Input, Screen, colors } from '@/components/ui';
+import { showAlert } from '@/lib/alerts';
 import { feedback } from '@/lib/feedback';
 import { formatDateTime, formatDuration, parseNumberInput } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
@@ -41,7 +42,7 @@ export default function ShiftScreen() {
     setBusy(false);
     if (error) {
       feedback.error();
-      Alert.alert('Hata', error.message);
+      showAlert('Hata', error.message);
       return;
     }
     feedback.success();
@@ -59,7 +60,7 @@ export default function ShiftScreen() {
     for (const p of products) {
       if (parseNumberInput(counts[p.id] ?? '') === null) {
         feedback.error();
-        Alert.alert('Hata', `"${p.name}" için geçerli bir sayım girin.`);
+        showAlert('Hata', `"${p.name}" için geçerli bir sayım girin.`);
         return;
       }
     }
@@ -83,7 +84,7 @@ export default function ShiftScreen() {
     if (countError) {
       setBusy(false);
       feedback.error();
-      Alert.alert('Hata', countError.message);
+      showAlert('Hata', countError.message);
       return;
     }
 
@@ -94,14 +95,14 @@ export default function ShiftScreen() {
     setBusy(false);
     if (endError) {
       feedback.error();
-      Alert.alert('Hata', endError.message);
+      showAlert('Hata', endError.message);
       return;
     }
 
     const diffs = rows.filter((r) => r.counted_qty !== r.expected_qty);
     if (diffs.length === 0) feedback.success();
     else feedback.warning();
-    Alert.alert(
+    showAlert(
       'Vardiya kapatıldı',
       diffs.length === 0
         ? 'Sayım sistemle birebir tuttu. İyi günler!'

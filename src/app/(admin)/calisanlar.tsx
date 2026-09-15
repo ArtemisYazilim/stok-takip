@@ -1,8 +1,9 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Badge, Button, Card, EmptyState, Input, Screen, SectionTitle, colors } from '@/components/ui';
+import { showAlert } from '@/lib/alerts';
 import { USERNAME_EMAIL_DOMAIN, createTempAuthClient, supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
 
@@ -50,11 +51,11 @@ export default function EmployeesScreen() {
   async function handleCreate() {
     const uname = slugifyUsername(fullName);
     if (!fullName.trim() || !uname || !password) {
-      Alert.alert('Hata', 'Ad ve şifre gerekli.');
+      showAlert('Hata', 'Ad ve şifre gerekli.');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Hata', 'Şifre en az 6 haneli olmalıdır.');
+      showAlert('Hata', 'Şifre en az 6 haneli olmalıdır.');
       return;
     }
     setBusy(true);
@@ -67,7 +68,7 @@ export default function EmployeesScreen() {
     });
     setBusy(false);
     if (error) {
-      Alert.alert(
+      showAlert(
         'Hata',
         error.message.includes('already registered')
           ? 'Bu kullanıcı adı zaten kayıtlı.'
@@ -77,14 +78,14 @@ export default function EmployeesScreen() {
     }
     setFullName('');
     setPassword('');
-    Alert.alert('Tamam', `Çalışan eklendi. Giriş: ${uname} / girdiğiniz şifre`);
+    showAlert('Tamam', `Çalışan eklendi. Giriş: ${uname} / girdiğiniz şifre`);
     await load();
   }
 
   async function toggleActive(p: Profile, value: boolean) {
     const { error } = await supabase.from('profiles').update({ active: value }).eq('id', p.id);
     if (error) {
-      Alert.alert('Hata', error.message);
+      showAlert('Hata', error.message);
       return;
     }
     await load();

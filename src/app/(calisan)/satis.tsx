@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Card, EmptyState, ProductThumb, Screen, colors } from '@/components/ui';
+import { showAlert } from '@/lib/alerts';
 import { feedback } from '@/lib/feedback';
 import { formatMoney, formatQty } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
@@ -64,12 +65,12 @@ export default function SaleScreen() {
     setBusy(false);
     if (error) {
       feedback.error();
-      Alert.alert('Hata', error.message.includes('Yetersiz stok') ? 'Yetersiz stok!' : error.message);
+      showAlert('Hata', error.message.includes('Yetersiz stok') ? 'Yetersiz stok!' : error.message);
       await load();
       return;
     }
     feedback.sale();
-    Alert.alert('Tamam', `Satış kaydedildi: ${formatMoney(total)}`);
+    showAlert('Tamam', `Satış kaydedildi: ${formatMoney(total)}`);
     setCart({});
     await load();
   }
