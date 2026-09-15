@@ -7,7 +7,7 @@ import { Button, Card, Input, ProductThumb, Screen, SectionTitle, colors } from 
 import { confirmAction, showAlert } from '@/lib/alerts';
 import { feedback } from '@/lib/feedback';
 import { formatQty, parseNumberInput } from '@/lib/format';
-import { uploadProductImage } from '@/lib/storage';
+import { PRODUCT_IMAGE_BUCKET, uploadProductImage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type { Product } from '@/lib/types';
 import { useAuth } from '@/providers/auth-provider';
@@ -225,6 +225,10 @@ export default function ProductEditScreen() {
     if (!id) return;
     setBusy(true);
     const { error } = await supabase.rpc('admin_delete_product', { target_id: id });
+    if (!error) {
+      // Fotoğrafı Storage'dan kaldır; kova/politika kurulu değilse sessizce geçilir.
+      await supabase.storage.from(PRODUCT_IMAGE_BUCKET).remove([id]);
+    }
     setBusy(false);
     if (error) {
       feedback.error();

@@ -163,10 +163,8 @@ begin
   delete from public.shift_counts where product_id = target_id;
   delete from public.products where id = target_id;
 
-  -- Fotoğraf nesnesi ürün id'siyle saklanır; kayıt varsa silinir, yoksa no-op.
-  -- image_url kolonuna bakılmaz (eski kurulumlarda kolon henüz olmayabilir).
-  delete from storage.objects
-  where bucket_id = 'product-images' and name = target_id::text;
+  -- Not: Fotoğraf silme burada yapılamaz; Supabase storage tablolarından
+  -- SQL ile doğrudan silmeyi engeller. İstemci Storage API ile kaldırır.
 end;
 $$;
 
