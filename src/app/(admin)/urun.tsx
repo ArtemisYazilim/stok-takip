@@ -1,9 +1,10 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Button, Card, Input, ProductThumb, Screen, SectionTitle, colors } from '@/components/ui';
+import { confirmAction, showAlert } from '@/lib/alerts';
 import { feedback } from '@/lib/feedback';
 import { formatQty, parseNumberInput } from '@/lib/format';
 import { uploadProductImage } from '@/lib/storage';
@@ -63,7 +64,7 @@ export default function ProductEditScreen() {
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert(
+      showAlert(
         'İzin gerekli',
         source === 'camera'
           ? 'Fotoğraf çekmek için kamera izni verin.'
@@ -103,7 +104,7 @@ export default function ProductEditScreen() {
     const minNum = parseNumberInput(minStock) ?? 0;
     if (!name.trim()) {
       feedback.error();
-      Alert.alert('Hata', 'Ürün adı gerekli.');
+      showAlert('Hata', 'Ürün adı gerekli.');
       return;
     }
     setBusy(true);
@@ -148,7 +149,7 @@ export default function ProductEditScreen() {
       router.back();
     } catch (e: any) {
       feedback.error();
-      Alert.alert('Hata', e?.message ?? 'Kaydedilemedi.');
+      showAlert('Hata', e?.message ?? 'Kaydedilemedi.');
     } finally {
       setBusy(false);
     }
@@ -157,7 +158,7 @@ export default function ProductEditScreen() {
   async function handleRestock() {
     const qty = parseNumberInput(restockQty);
     if (!qty || qty <= 0 || !id || !session) {
-      Alert.alert('Hata', 'Geçerli bir miktar girin.');
+      showAlert('Hata', 'Geçerli bir miktar girin.');
       return;
     }
     setBusy(true);
@@ -170,7 +171,7 @@ export default function ProductEditScreen() {
     setBusy(false);
     if (error) {
       feedback.error();
-      Alert.alert('Hata', error.message);
+      showAlert('Hata', error.message);
       return;
     }
     feedback.success();
@@ -181,12 +182,12 @@ export default function ProductEditScreen() {
   async function handleAdjust() {
     const target = parseNumberInput(adjustTarget);
     if (target === null || target < 0 || !id || !product || !session) {
-      Alert.alert('Hata', 'Geçerli bir stok değeri girin.');
+      showAlert('Hata', 'Geçerli bir stok değeri girin.');
       return;
     }
     const delta = target - product.stock;
     if (delta === 0) {
-      Alert.alert('Bilgi', 'Stok zaten bu değerde.');
+      showAlert('Bilgi', 'Stok zaten bu değerde.');
       return;
     }
     setBusy(true);
@@ -201,7 +202,7 @@ export default function ProductEditScreen() {
     setBusy(false);
     if (error) {
       feedback.error();
-      Alert.alert('Hata', error.message);
+      showAlert('Hata', error.message);
       return;
     }
     feedback.success();
@@ -209,17 +210,15 @@ export default function ProductEditScreen() {
     router.back();
   }
 
-  function confirmDelete() {
-    if (!product) return;
+  async function confirmDelete() {
+    if (!product || busy) return;
     feedback.warning();
-    Alert.alert(
+    const onay = await confirmAction(
       'Ürünü Sil',
       `'${product.name}' ürünü ve tüm satış/alım geçmişi kalıcı olarak silinecek. Bu işlem geri alınamaz.`,
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        { text: 'Sil', style: 'destructive', onPress: handleDelete },
-      ],
+      'Sil',
     );
+    if (onay) await handleDelete();
   }
 
   async function handleDelete() {
@@ -229,7 +228,7 @@ export default function ProductEditScreen() {
     setBusy(false);
     if (error) {
       feedback.error();
-      Alert.alert('Hata', error.message);
+      showAlert('Hata', error.message);
       return;
     }
     feedback.success();

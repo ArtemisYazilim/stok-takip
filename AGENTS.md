@@ -62,6 +62,7 @@ src/
                         # Badge, EmptyState, SectionTitle, ProductThumb
   hooks/                # use-open-shift (açık vardiya), use-unread-notifications (realtime rozet)
   lib/
+    alerts.ts           # Web uyumlu uyarı/onay diyalogları (showAlert/confirmAction)
     supabase.ts         # supabase istemcisi, isSupabaseConfigured, createTempAuthClient,
                         # toLoginEmail (kullanıcı adı → ad@personel.local)
     types.ts            # Alan adı tipleri (Profile, Product, Shift, StockMovement, ...)
@@ -86,7 +87,7 @@ assets/                 # Görseller ve sesler (tap/success/sale/error .wav)
 - **Stil**: Her ekranda `StyleSheet.create`; renkler asla hardcode edilmez, hep `colors` (src/components/ui.tsx) üzerinden gelir. Tailwind/stil kütüphanesi yoktur. `Screen`/`Card`/`Button`/`Input` ortak bileşenleri kullanılır.
 - **Türkçe sayı biçimi**: Para/adet gösterimi için `formatMoney`/`formatQty`, kullanıcı girdisi sayıya çevrilecekse `parseNumberInput` kullanılır (ondalık virgül kabul eder).
 - **Geri bildirim**: Kullanıcı aksiyonlarında ve hatalarda `feedback` çağrılır (`press`, `tick`, `sale`, `success`, `error`, `warning`). Yeni buton/aksiyon eklerken bu convention korunur.
-- **Hata gösterimi**: `Alert.alert('Hata', ...)`; Supabase hata mesajı 'Yetersiz stok' içeriyorsa Türkçeleştirilir.
+- **Hata/uyarı gösterimi**: `Alert.alert(...)` yerine web uyumlu `showAlert`/`confirmAction` (`src/lib/alerts.ts`) kullanılır — RN Web'de `Alert` sessizce yok sayılır ve kullanıcı geri bildirim görmez. Supabase hata mesajı 'Yetersiz stok' içeriyorsa Türkçeleştirilir.
 - **Çalışan girişi**: Kullanıcı adı arka planda `kullaniciadi@personel.local` sahte e-postasına çevrilir (`toLoginEmail`). Yeni çalışan açarken **asla** ana `supabase` istemcisiyle `signUp` yapılmaz; admin oturumu ezilmesin diye `createTempAuthClient()` kullanılır (`calisanlar.tsx`).
 - **Rol koruması**: Her route grubunun `_layout.tsx`'i oturum ve rol kontrolü yapar (`Redirect` ile yanlış rolden atar). Yeni sekme eklerken ilgili layout'a `Tabs.Screen` eklenir; detay sayfaları `href: null` ile sekmeden gizlenir.
 - **Yorumlar Türkçe** yazılır ve "neden" bilgisini taşır (ör. `vardiya.tsx`'teki sayım doğrulaması yorumu).
