@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Button, Card, EmptyState, Screen, SectionTitle, colors } from '@/components/ui';
@@ -49,9 +49,11 @@ export default function ShiftDetailScreen() {
     setSales([...byProduct.values()].sort((a, b) => b.revenue - a.revenue));
   }, [id]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const totalRevenue = sales.reduce((s, x) => s + x.revenue, 0);
   const diffs = counts.filter((c) => c.counted_qty !== c.expected_qty);
