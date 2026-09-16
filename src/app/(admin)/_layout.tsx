@@ -63,6 +63,15 @@ export default function AdminLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" color={color} size={size} />,
         }}
       />
+      <Tabs.Screen
+        name="notlar"
+        options={{
+          title: 'Notlar',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="create-outline" color={color} size={size} />
+          ),
+        }}
+      />
       <Tabs.Screen name="urun" options={{ href: null }} />
       <Tabs.Screen name="vardiya-detay" options={{ href: null }} />
       <Tabs.Screen name="calisan-detay" options={{ href: null }} />
