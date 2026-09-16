@@ -14,6 +14,10 @@
 4. Sol menü **Authentication → Sign In / Up → Email** bölümünde **"Confirm email" ayarını KAPAT** (çalışan hesapları sahte e-posta kullandığı için onay maili gidemez).
 
 > **Zaten kurulu projeniz varsa** (schema.sql'i daha önce çalıştırdıysanız): fotoğraf + bildirim özelliklerini eklemek için SQL Editor'de **`supabase/002_gelistirmeler.sql`** dosyasının tamamını çalıştırın. Tekrar çalıştırılabilir, mevcut veriye dokunmaz.
+>
+> Sonraki geçişler de aynı şekilde SQL Editor'de sırayla çalıştırılır (hepsi idempotent):
+> - `supabase/003_urun_silme.sql` — ürün silme RPC'si
+> - `supabase/004_notlar_ve_vardiya_izni.sql` — çalışan not defteri, vardiya açma izni ve satışta iade desteği
 
 ## 2. Admin hesabını aç
 

@@ -12,8 +12,8 @@ Expo **SDK 57** kullanılır (React Native 0.86, React 19). Bu sürüm eğitim v
 
 İki kullanıcı rolü vardır (`src/lib/types.ts`):
 
-- **admin**: Ürün CRUD + fotoğraf, alım/düzeltme/iade girişi, çalışan hesabı açma/silme, hareket geçmişi, vardiya raporları ve canlı bildirimleri görür.
-- **calisan**: Kullanıcı adıyla giriş yapar, vardiya başlatır, satış yapar (stok otomatik düşer), vardiya sonunda raf sayımı yapıp devreder. Sayım farkı admin paneline düşer.
+- **admin**: Ürün CRUD + fotoğraf, alım/düzeltme/iade girişi, çalışan hesabı açma/silme, çalışana vardiya açma izni verme, herkes adına vardiya açma/kapatma, hareket geçmişi (birleşik filtreli akış), vardiya raporları ve canlı bildirimleri görür.
+- **calisan**: Kullanıcı adıyla giriş yapar, vardiya başlatır (profilde `can_open_shift` izni varsa; yoksa admin onun için açar), satış ve iade yapar (stok otomatik güncellenir), ortak not defterine tarihli not düşer, vardiya sonunda raf sayımı yapıp devreder. Sayım farkı admin paneline düşer.
 
 ## Teknoloji yığını
 
@@ -55,9 +55,9 @@ src/
     _layout.tsx         # Kök: AuthProvider + Stack; .env kontrolü
     index.tsx           # Role göre yönlendirme (admin → (admin)/stok, calisan → (calisan)/satis)
     login.tsx           # Kullanıcı adı/e-posta + şifre girişi
-    (admin)/            # Admin sekmeleri: stok, hareketler, vardiyalar, bildirimler, calisanlar
+    (admin)/            # Admin sekmeleri: stok, hareketler, vardiyalar, bildirimler, calisanlar, notlar
                         # + href:null detay ekranları: urun, vardiya-detay, calisan-detay
-    (calisan)/          # Çalışan sekmeleri: satis, vardiya, stok
+    (calisan)/          # Çalışan sekmeleri: satis (+ iade modu), vardiya, stok, notlar
   components/ui.tsx     # Tek dosyalık UI kiti: colors, Screen, Card, Button, Input,
                         # Badge, EmptyState, SectionTitle, ProductThumb
   hooks/                # use-open-shift (açık vardiya), use-unread-notifications (realtime rozet)
@@ -75,6 +75,8 @@ src/
 supabase/
   schema.sql            # Tam şema: tablolar, tetikleyiciler, RLS, storage bucket, realtime
   002_gelistirmeler.sql # İdempotent geçiş: ürün fotoğrafı + bildirimler (mevcut DB'ye eklenti)
+  003_urun_silme.sql    # İdempotent geçiş: admin_delete_product RPC
+  004_notlar_ve_vardiya_izni.sql # İdempotent geçiş: notes tablosu + can_open_shift + iade RLS'i
 assets/                 # Görseller ve sesler (tap/success/sale/error .wav)
 .github/workflows/deploy.yml  # master'a push'ta web export + GitHub Pages dağıtımı
 ```
@@ -96,14 +98,16 @@ assets/                 # Görseller ve sesler (tap/success/sale/error .wav)
 
 - **Stok asla doğrudan `products` üzerinden güncellenmez.** Tüm stok değişimleri `stock_movements` satırı eklenerek yapılır; `apply_stock_movement()` tetikleyicisi stoku atomik günceller ve eksiye düşerse `'Yetersiz stok'` hatasıyla işlemi geri alır. `satis` → `delta = -qty`, `alim`/`iade` → `+qty`, `duzeltme` → istemciden gelen delta.
 - **İstemci her zaman tipi Türkçe sabitlerle gönderir**: `'satis'`, `'alim'`, `'duzeltme'`, `'iade'` (bkz. `MovementType`).
-- `shifts`: bir çalışanın aynı anda tek açık vardiyası olabilir (kısmi unique index).
+- `shifts`: bir çalışanın aynı anda tek açık vardiyası olabilir (kısmi unique index). Vardiya açma: admin herkes adına açabilir/kapatabilir (`vardiyalar.tsx`); çalışan ancak `profiles.can_open_shift` true ise kendi vardiyasını açar (RLS `shifts_insert` politikasında zorlanır).
+- `notes`: çalışanların ortak not defteri (kağıt defterin yerini alır). Herkes okur, herkes kendi adına yazar; silme = kendi notu veya admin. Çalışan `notlar.tsx` sekmesinden yazar/görür; admin hem `hareketler.tsx` akışında hem kendi `notlar.tsx` sekmesinde görür (admin not yazmaz, silebilir).
+- `hareketler.tsx` (admin) tek birleşik akıştır: hareket + not + bildirim; filtre yokken vardiya bazlı gruplanır (açık vardiya üstte), filtre (tür/kişi/zaman/arama) varken düz liste olur.
 - Vardiya kapatılınca (UPDATE ile `ended_at` dolunca) `notify_shift_closed()` tetikleyicisi admin `notifications` tablosuna kayıt atar; sayım farkları `shift_counts` ile `counted_qty <> expected_qty` karşılaştırmasından üretilir.
 - Şema değişikliği gerektiğinde: `schema.sql` ilk kurulum içindir; mevcut veritabanlarına ekleme için `002_gelistirmeler.sql` gibi **idempotent** (`if not exists` / `drop ... if exists`) yeni numaralı dosyalar eklenir.
 - Alan tipleri `src/lib/types.ts` ile şema birebir eşleşmelidir; şema değişirse bu dosya da güncellenir.
 
 ## Güvenlik
 
-- Tüm tablolarda **RLS açıktır**. Yetki kontrolü `public.is_admin()` (security definer) fonksiyonuyla yapılır. Özet: ürün yazma = sadece admin; hareket yazma = kendi adına + `satis` herkes / diğer tipleri admin; bildirim okuma/okundu = sadece admin.
+- Tüm tablolarda **RLS açıktır**. Yetki kontrolü `public.is_admin()` (security definer) fonksiyonuyla yapılır. Özet: ürün yazma = sadece admin; hareket yazma = kendi adına + `satis`/`iade` herkes / `alim`/`duzeltme` sadece admin; bildirim okuma/okundu = sadece admin; not okuma/yazma = herkes (kendi adına), not silme = kendi notu veya admin.
 - `notifications` tablosunda **INSERT politikası bilinçli olarak yoktur**; kayıtları yalnızca security definer tetikleyici yazar. Yeni politika eklerken bunu bozmayın.
 - `EXPO_PUBLIC_*` anon anahtarı herkese açıktır (Expo'nun doğası gereği); gerçek güvenlik RLS'tedir. Anahtar/URL `.env`'de tutulur, CI'da GitHub Secrets ile verilir.
 - Supabase Auth'ta **"Confirm email" kapalı olmalıdır** (çalışan hesapları sahte e-posta kullanır, onay maili gidemez).
