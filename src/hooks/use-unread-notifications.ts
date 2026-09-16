@@ -24,6 +24,8 @@ export function useUnreadNotifications() {
 
   useEffect(() => {
     if (!isAdmin) return;
+    // Açılışta rozeti bir kez doldurur; refresh async olduğu için senkron setState yoktur.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
     const channel = supabase
       .channel('notifications-badge')
