@@ -116,16 +116,30 @@ export default function ShiftScreen() {
   if (!loaded) return <Screen><View /></Screen>;
 
   if (!shift) {
+    // Admin bu çalışana vardiya açma izni vermediyse başlatma butonu gösterilmez;
+    // vardiyayı admin, Vardiyalar sekmesinden çalışan adına açar.
+    const canOpen = profile?.can_open_shift ?? true;
     return (
       <Screen>
         <Text style={styles.title}>Vardiya</Text>
         <View style={styles.center}>
           <Card style={{ gap: 14, alignItems: 'center', padding: 24 }}>
             <Text style={styles.bigText}>Vardiyanız kapalı</Text>
-            <Text style={styles.hint}>
-              Nöbeti devralınca vardiyayı başlatın. Yaptığınız tüm satışlar bu vardiyaya işlenir.
-            </Text>
-            <Button title="Vardiyayı Başlat" onPress={startShift} loading={busy} />
+            {canOpen ? (
+              <>
+                <Text style={styles.hint}>
+                  Nöbeti devralınca vardiyayı başlatın. Yaptığınız tüm satışlar bu vardiyaya işlenir.
+                </Text>
+                <Button title="Vardiyayı Başlat" onPress={startShift} loading={busy} />
+              </>
+            ) : (
+              <>
+                <Text style={styles.hint}>
+                  Vardiya açma yetkiniz yok. Admin sizin için vardiya başlattığında burada görünür.
+                </Text>
+                <Button title="Yenile" variant="ghost" onPress={reload} loading={!loaded} />
+              </>
+            )}
           </Card>
         </View>
       </Screen>

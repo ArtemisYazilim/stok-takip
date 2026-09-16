@@ -7,6 +7,7 @@ export interface Profile {
   full_name: string;
   role: Role;
   active: boolean;
+  can_open_shift: boolean;
   created_at: string;
 }
 

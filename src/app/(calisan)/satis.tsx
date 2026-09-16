@@ -89,6 +89,7 @@ export default function SaleScreen() {
   }
 
   if (loaded && !shift) {
+    const canOpen = profile?.can_open_shift ?? true;
     return (
       <Screen>
         <View style={styles.header}>
@@ -101,12 +102,18 @@ export default function SaleScreen() {
           <Card style={{ gap: 12, alignItems: 'center', padding: 24 }}>
             <Ionicons name="time-outline" size={40} color={colors.textMuted} />
             <Text style={styles.noShiftText}>
-              Satış yapabilmek için önce vardiyanızı başlatın.
+              {canOpen
+                ? 'Satış yapabilmek için önce vardiyanızı başlatın.'
+                : 'Vardiya açma yetkiniz yok. Admin sizin için vardiya başlattığında satış yapabilirsiniz.'}
             </Text>
-            <Button
-              title="Vardiyaya Git"
-              onPress={() => router.push('/(calisan)/vardiya')}
-            />
+            {canOpen ? (
+              <Button
+                title="Vardiyaya Git"
+                onPress={() => router.push('/(calisan)/vardiya')}
+              />
+            ) : (
+              <Button title="Yenile" variant="ghost" onPress={reload} />
+            )}
           </Card>
         </View>
       </Screen>

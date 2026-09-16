@@ -29,6 +29,7 @@ export default function EmployeesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
+  const [canOpenShift, setCanOpenShift] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -64,7 +65,7 @@ export default function EmployeesScreen() {
     const { error } = await temp.auth.signUp({
       email: `${uname}@${USERNAME_EMAIL_DOMAIN}`,
       password,
-      options: { data: { full_name: fullName.trim(), role: 'calisan' } },
+      options: { data: { full_name: fullName.trim(), role: 'calisan', can_open_shift: canOpenShift } },
     });
     setBusy(false);
     if (error) {
@@ -78,6 +79,7 @@ export default function EmployeesScreen() {
     }
     setFullName('');
     setPassword('');
+    setCanOpenShift(true);
     showAlert('Tamam', `Çalışan eklendi. Giriş: ${uname} / girdiğiniz şifre`);
     await load();
   }
@@ -117,6 +119,15 @@ export default function EmployeesScreen() {
               secureTextEntry
               placeholder="••••••"
             />
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.switchLabel}>Vardiya açabilir</Text>
+                <Text style={styles.switchDesc}>
+                  Kapalıysa çalışan vardiya başlatamaz; admin Vardiyalar sekmesinden onun için açar.
+                </Text>
+              </View>
+              <Switch value={canOpenShift} onValueChange={setCanOpenShift} />
+            </View>
             <Button title="Çalışan Ekle" onPress={handleCreate} loading={busy} />
           </Card>
         }
@@ -127,10 +138,15 @@ export default function EmployeesScreen() {
           >
             <View style={{ flex: 1, gap: 3 }}>
               <Text style={styles.rowName}>{item.full_name || '(İsimsiz)'}</Text>
-              <Badge
-                text={item.role === 'admin' ? 'Admin' : 'Çalışan'}
-                color={item.role === 'admin' ? colors.primary : colors.textMuted}
-              />
+              <View style={styles.badgeRow}>
+                <Badge
+                  text={item.role === 'admin' ? 'Admin' : 'Çalışan'}
+                  color={item.role === 'admin' ? colors.primary : colors.textMuted}
+                />
+                {item.role !== 'admin' && !item.can_open_shift ? (
+                  <Badge text="Vardiya açamaz" color={colors.warning} />
+                ) : null}
+              </View>
             </View>
             {item.role !== 'admin' ? (
               <View style={{ alignItems: 'center', gap: 2 }}>
@@ -177,5 +193,24 @@ const styles = StyleSheet.create({
   switchHint: {
     fontSize: 11,
     color: colors.textMuted,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  switchLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  switchDesc: {
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 16,
   },
 });

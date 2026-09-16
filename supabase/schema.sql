@@ -10,6 +10,8 @@ create table public.profiles (
   full_name text not null default '',
   role text not null default 'calisan' check (role in ('admin', 'calisan')),
   active boolean not null default true,
+  -- false ise çalışan kendi vardiyasını açamaz; admin onun için açar.
+  can_open_shift boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -106,11 +108,12 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name, role)
+  insert into public.profiles (id, full_name, role, can_open_shift)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'full_name', ''),
-    coalesce(new.raw_user_meta_data ->> 'role', 'calisan')
+    coalesce(new.raw_user_meta_data ->> 'role', 'calisan'),
+    coalesce((new.raw_user_meta_data ->> 'can_open_shift')::boolean, true)
   );
   return new;
 end;
@@ -311,14 +314,24 @@ create policy "products_update_admin" on public.products
   using (public.is_admin())
   with check (public.is_admin());
 
--- shifts: herkes okur; çalışan kendi vardiyasını açar/kapatır, admin hepsini.
+-- shifts: herkes okur; admin herkes için vardiya açar, çalışan ise
+-- ancak can_open_shift izni varsa kendi vardiyasını açar.
 create policy "shifts_select" on public.shifts
   for select to authenticated
   using (true);
 
-create policy "shifts_insert_own" on public.shifts
+create policy "shifts_insert" on public.shifts
   for insert to authenticated
-  with check (profile_id = auth.uid());
+  with check (
+    public.is_admin()
+    or (
+      profile_id = auth.uid()
+      and exists (
+        select 1 from public.profiles p
+        where p.id = auth.uid() and p.can_open_shift
+      )
+    )
+  );
 
 create policy "shifts_update" on public.shifts
   for update to authenticated

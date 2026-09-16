@@ -1,6 +1,6 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Badge, Button, Card, EmptyState, Screen, SectionTitle, colors } from '@/components/ui';
 import { confirmAction, showAlert } from '@/lib/alerts';
@@ -53,9 +53,11 @@ export default function EmployeeDetailScreen() {
     );
   }, [id]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
   const totalQty = rows.reduce((s, r) => s + r.qty, 0);
@@ -83,6 +85,19 @@ export default function EmployeeDetailScreen() {
     if (onay) await runDelete();
   }
 
+  async function toggleCanOpenShift(value: boolean) {
+    if (!profile) return;
+    setProfile({ ...profile, can_open_shift: value });
+    const { error } = await supabase
+      .from('profiles')
+      .update({ can_open_shift: value })
+      .eq('id', profile.id);
+    if (error) {
+      setProfile({ ...profile, can_open_shift: !value });
+      showAlert('Hata', error.message);
+    }
+  }
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.wrap}>
@@ -98,6 +113,20 @@ export default function EmployeeDetailScreen() {
               />
             </View>
             <Text style={styles.meta}>Katılım: {formatDateTime(profile.created_at)}</Text>
+          </Card>
+        ) : null}
+
+        {profile && profile.role !== 'admin' ? (
+          <Card style={{ gap: 4 }}>
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.switchLabel}>Vardiya açabilir</Text>
+                <Text style={styles.meta}>
+                  Kapalıysa bu çalışan vardiya başlatamaz; Vardiyalar sekmesinden onun için siz açarsınız.
+                </Text>
+              </View>
+              <Switch value={profile.can_open_shift} onValueChange={toggleCanOpenShift} />
+            </View>
           </Card>
         ) : null}
 
@@ -214,6 +243,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   shiftDate: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  switchLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
