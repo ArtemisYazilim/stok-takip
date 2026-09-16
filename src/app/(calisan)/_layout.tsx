@@ -43,6 +43,15 @@ export default function WorkerLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="cube-outline" color={color} size={size} />,
         }}
       />
+      <Tabs.Screen
+        name="notlar"
+        options={{
+          title: 'Notlar',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="create-outline" color={color} size={size} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

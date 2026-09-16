@@ -81,6 +81,16 @@ create table public.notifications (
 
 create index idx_notifications_created on public.notifications (created_at desc);
 
+-- Çalışanların ortak not defteri (kağıt defterin dijital karşılığı).
+create table public.notes (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles (id),
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index idx_notes_created on public.notes (created_at desc);
+
 -- ============================================================
 -- Fonksiyonlar ve tetikleyiciler
 -- ============================================================
@@ -143,6 +153,8 @@ begin
      or shift_id in (select id from public.shifts where profile_id = target_id);
 
   delete from public.shifts where profile_id = target_id;
+
+  delete from public.notes where profile_id = target_id;
 
   delete from auth.users where id = target_id;
 end;
@@ -289,6 +301,7 @@ alter table public.shifts enable row level security;
 alter table public.stock_movements enable row level security;
 alter table public.shift_counts enable row level security;
 alter table public.notifications enable row level security;
+alter table public.notes enable row level security;
 
 -- profiles: herkes kendi profilini görür, admin hepsini görür/günceller.
 create policy "profiles_select" on public.profiles
@@ -375,6 +388,20 @@ create policy "notifications_update_admin" on public.notifications
   for update to authenticated
   using (public.is_admin())
   with check (public.is_admin());
+
+-- notes: giriş yapan herkes okur (ortak defter); herkes kendi adına yazar;
+-- silme: kendi notu veya admin.
+create policy "notes_select" on public.notes
+  for select to authenticated
+  using (true);
+
+create policy "notes_insert_own" on public.notes
+  for insert to authenticated
+  with check (profile_id = auth.uid());
+
+create policy "notes_delete" on public.notes
+  for delete to authenticated
+  using (profile_id = auth.uid() or public.is_admin());
 
 -- ============================================================
 -- Depolama (ürün fotoğrafları) + realtime

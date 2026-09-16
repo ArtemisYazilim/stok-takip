@@ -46,6 +46,14 @@ export interface Shift {
   profiles?: Pick<Profile, 'full_name'>;
 }
 
+export interface Note {
+  id: string;
+  profile_id: string;
+  body: string;
+  created_at: string;
+  profiles?: Pick<Profile, 'full_name'>;
+}
+
 export interface StockMovement {
   id: string;
   product_id: string;
