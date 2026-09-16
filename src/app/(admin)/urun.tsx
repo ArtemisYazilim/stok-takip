@@ -27,6 +27,7 @@ export default function ProductEditScreen() {
   const [busy, setBusy] = useState(false);
 
   const [restockQty, setRestockQty] = useState('');
+  const [returnQty, setReturnQty] = useState('');
   const [adjustTarget, setAdjustTarget] = useState('');
 
   // Fotoğraf: currentImageUrl kayıtlı URL; photoBase64 yeni seçilen görsel.
@@ -179,6 +180,31 @@ export default function ProductEditScreen() {
     router.back();
   }
 
+  async function handleReturn() {
+    const qty = parseNumberInput(returnQty);
+    if (!qty || qty <= 0 || !id || !session) {
+      showAlert('Hata', 'Geçerli bir miktar girin.');
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.from('stock_movements').insert({
+      product_id: id,
+      profile_id: session.user.id,
+      type: 'iade',
+      qty,
+      note: 'Müşteri iadesi',
+    });
+    setBusy(false);
+    if (error) {
+      feedback.error();
+      showAlert('Hata', error.message);
+      return;
+    }
+    feedback.success();
+    setReturnQty('');
+    router.back();
+  }
+
   async function handleAdjust() {
     const target = parseNumberInput(adjustTarget);
     if (target === null || target < 0 || !id || !product || !session) {
@@ -309,6 +335,21 @@ export default function ProductEditScreen() {
                 placeholder="ör. 12"
               />
               <Button title="Stoka Ekle" variant="success" onPress={handleRestock} loading={busy} />
+            </Card>
+
+            <Card style={{ gap: 12 }}>
+              <SectionTitle text="İade Al" />
+              <Text style={styles.hint}>
+                Müşteri satılan ürünü geri getirdiyse miktarı girin; stok iade hareketiyle artar.
+              </Text>
+              <Input
+                label="İade miktarı"
+                value={returnQty}
+                onChangeText={setReturnQty}
+                keyboardType="decimal-pad"
+                placeholder="ör. 1"
+              />
+              <Button title="İadeyi Kaydet" onPress={handleReturn} loading={busy} />
             </Card>
 
             <Card style={{ gap: 12 }}>

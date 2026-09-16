@@ -325,8 +325,8 @@ create policy "shifts_update" on public.shifts
   using (profile_id = auth.uid() or public.is_admin())
   with check (profile_id = auth.uid() or public.is_admin());
 
--- stock_movements: herkes okur; satışı herkes kendi adına yazar,
--- alım/düzeltme/iade sadece admin.
+-- stock_movements: herkes okur; satış ve iade herkes kendi adına yazar,
+-- alım/düzeltme sadece admin.
 create policy "movements_select" on public.stock_movements
   for select to authenticated
   using (true);
@@ -335,7 +335,7 @@ create policy "movements_insert" on public.stock_movements
   for insert to authenticated
   with check (
     profile_id = auth.uid()
-    and (type = 'satis' or public.is_admin())
+    and (type in ('satis', 'iade') or public.is_admin())
   );
 
 -- shift_counts: herkes okur; sayımı vardiya sahibi veya admin yazar.

@@ -18,6 +18,8 @@ export default function SaleScreen() {
   const { shift, loaded, reload } = useOpenShift();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
+  // satis = raftan düşer; iade = müşteri geri getirir, stoğa eklenir.
+  const [mode, setMode] = useState<'satis' | 'iade'>('satis');
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -50,14 +52,14 @@ export default function SaleScreen() {
   const cartItems = products.filter((p) => cart[p.id]);
   const total = cartItems.reduce((sum, p) => sum + (cart[p.id] ?? 0) * p.sale_price, 0);
 
-  async function handleSell() {
+  async function handleSave() {
     if (!session || !shift || cartItems.length === 0) return;
     setBusy(true);
     const rows = cartItems.map((p) => ({
       product_id: p.id,
       profile_id: session.user.id,
       shift_id: shift.id,
-      type: 'satis' as const,
+      type: mode,
       qty: cart[p.id],
       unit_price: p.sale_price,
     }));
@@ -69,8 +71,13 @@ export default function SaleScreen() {
       await load();
       return;
     }
-    feedback.sale();
-    showAlert('Tamam', `Satış kaydedildi: ${formatMoney(total)}`);
+    if (mode === 'satis') {
+      feedback.sale();
+      showAlert('Tamam', `Satış kaydedildi: ${formatMoney(total)}`);
+    } else {
+      feedback.success();
+      showAlert('Tamam', `İade kaydedildi, stok güncellendi: ${formatMoney(total)}`);
+    }
     setCart({});
     await load();
   }
@@ -118,6 +125,27 @@ export default function SaleScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.modeRow}>
+        {(['satis', 'iade'] as const).map((m) => {
+          const active = mode === m;
+          return (
+            <Pressable
+              key={m}
+              style={[styles.modeBtn, active && styles.modeBtnActive]}
+              onPress={() => {
+                feedback.press();
+                setMode(m);
+                setCart({});
+              }}
+            >
+              <Text style={[styles.modeText, active && styles.modeTextActive]}>
+                {m === 'satis' ? 'Satış' : 'İade Al'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <FlatList
         data={products}
         keyExtractor={(p) => p.id}
@@ -127,7 +155,9 @@ export default function SaleScreen() {
         ListEmptyComponent={<EmptyState text="Satılacak ürün yok. Admin ürün eklemeli." />}
         renderItem={({ item }) => {
           const qty = cart[item.id] ?? 0;
-          const out = item.stock <= 0;
+          // İadede ürün müşteriden gelir; stok sınırı ve "tükendi" kilidi uygulanmaz.
+          const out = mode === 'satis' && item.stock <= 0;
+          const max = mode === 'satis' ? item.stock : 9999;
           return (
             <View style={[styles.row, out && { opacity: 0.5 }]}>
               <ProductThumb uri={item.image_url} size={48} />
@@ -142,7 +172,7 @@ export default function SaleScreen() {
                   style={styles.stepBtn}
                   onPress={() => {
                     feedback.press();
-                    changeQty(item.id, -1, item.stock);
+                    changeQty(item.id, -1, max);
                   }}
                   disabled={qty === 0}
                 >
@@ -153,14 +183,14 @@ export default function SaleScreen() {
                   style={styles.stepBtn}
                   onPress={() => {
                     feedback.tick();
-                    changeQty(item.id, 1, item.stock);
+                    changeQty(item.id, 1, max);
                   }}
-                  disabled={out || qty >= item.stock}
+                  disabled={out || qty >= max}
                 >
                   <Ionicons
                     name="add"
                     size={20}
-                    color={out || qty >= item.stock ? colors.border : colors.primary}
+                    color={out || qty >= max ? colors.border : colors.primary}
                   />
                 </Pressable>
               </View>
@@ -172,9 +202,13 @@ export default function SaleScreen() {
       {cartItems.length > 0 ? (
         <View style={styles.footer}>
           <Button
-            title={`Satışı Kaydet · ${formatMoney(total)}`}
+            title={
+              mode === 'satis'
+                ? `Satışı Kaydet · ${formatMoney(total)}`
+                : `İadeyi Kaydet · ${formatMoney(total)}`
+            }
             variant="success"
-            onPress={handleSell}
+            onPress={handleSave}
             loading={busy}
           />
         </View>
@@ -206,6 +240,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 90,
     gap: 8,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  modeBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+  },
+  modeBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  modeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  modeTextActive: {
+    color: '#fff',
   },
   row: {
     flexDirection: 'row',
