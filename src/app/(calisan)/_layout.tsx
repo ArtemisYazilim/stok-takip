@@ -44,6 +44,15 @@ export default function WorkerLayout() {
         }}
       />
       <Tabs.Screen
+        name="hareketler"
+        options={{
+          title: 'Hareketlerim',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="notlar"
         options={{
           title: 'Notlar',

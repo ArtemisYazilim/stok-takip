@@ -57,7 +57,7 @@ src/
     login.tsx           # Kullanıcı adı/e-posta + şifre girişi
     (admin)/            # Admin sekmeleri: stok, hareketler, vardiyalar, bildirimler, calisanlar, notlar
                         # + href:null detay ekranları: urun, vardiya-detay, calisan-detay
-    (calisan)/          # Çalışan sekmeleri: satis (+ iade modu), vardiya, stok, notlar
+    (calisan)/          # Çalışan sekmeleri: satis (+ iade modu), vardiya, stok, hareketler (kendi hareketleri), notlar
   components/ui.tsx     # Tek dosyalık UI kiti: colors, Screen, Card, Button, Input,
                         # Badge, EmptyState, SectionTitle, ProductThumb
   hooks/                # use-open-shift (açık vardiya), use-unread-notifications (realtime rozet)
