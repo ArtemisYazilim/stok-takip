@@ -20,6 +20,7 @@ export default function AdminStockScreen() {
       .from('products')
       .select('*')
       .eq('active', true)
+      .order('sort_order', { ascending: true, nullsFirst: false })
       .order('name');
     setProducts((data as Product[]) ?? []);
   }, []);
@@ -84,7 +85,14 @@ export default function AdminStockScreen() {
       />
 
       <View style={styles.fabWrap}>
-        <Button title="+ Yeni Ürün" onPress={() => router.push('/(admin)/urun')} />
+        <Button
+          title="Excel'den Aktar"
+          icon="document-text-outline"
+          variant="ghost"
+          onPress={() => router.push('/(admin)/aktar')}
+          style={styles.importBtn}
+        />
+        <Button title="+ Yeni Ürün" onPress={() => router.push('/(admin)/urun')} style={{ flex: 1 }} />
       </View>
     </Screen>
   );
@@ -150,5 +158,11 @@ const styles = StyleSheet.create({
     bottom: 16,
     right: 16,
     left: 16,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  importBtn: {
+    flex: 1,
+    backgroundColor: colors.card,
   },
 });

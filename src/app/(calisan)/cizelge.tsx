@@ -75,7 +75,12 @@ export default function CizelgeScreen() {
     if (sh.ended_at) movQuery = movQuery.lte('created_at', sh.ended_at);
 
     const [prodRes, movRes, sheetRes, prevRes] = await Promise.all([
-      supabase.from('products').select('*').eq('active', true).order('name'),
+      supabase
+        .from('products')
+        .select('*')
+        .eq('active', true)
+        .order('sort_order', { ascending: true, nullsFirst: false })
+        .order('name'),
       movQuery,
       supabase.from('shift_sheets').select('*').eq('shift_id', sh.id).maybeSingle(),
       supabase

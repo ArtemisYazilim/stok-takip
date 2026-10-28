@@ -21,6 +21,8 @@ export interface Product {
   min_stock: number;
   active: boolean;
   image_url: string | null;
+  /** Kağıttaki yağ listesindeki sıra (Excel aktarımından); null ise sonda, ada göre. */
+  sort_order: number | null;
   created_at: string;
 }
 
