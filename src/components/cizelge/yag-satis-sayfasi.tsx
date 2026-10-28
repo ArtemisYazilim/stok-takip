@@ -4,7 +4,7 @@ import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, EmptyState, colors } from '@/components/ui';
 import { showAlert } from '@/lib/alerts';
 import { feedback } from '@/lib/feedback';
-import { formatMoney, formatQty, parseNumberInput } from '@/lib/format';
+import { formatMoney, formatQty, formatSigned, parseNumberInput } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import type { Product } from '@/lib/types';
 import { useAuth } from '@/providers/auth-provider';
@@ -100,11 +100,14 @@ export function YagSatisSayfasi({
     const satDelta = adet === null ? 0 : round2(adet - row.satilan);
     const dvr = round2(row.onceki + row.ckn + cknDelta);
     const bak = round2(row.kalan + cknDelta - satDelta);
+    // ÇKN depodan düşer; depo güncel stoktur (kapanmış nöbette gösterilmez).
+    const depo = round2(row.product.depot_stock - cknDelta);
     // Kağıtta olmayan değişimler (admin düzeltmesi, başka nöbetin satışı vb.).
     const diger = round2(row.kalan - (row.onceki + row.ckn - row.satilan));
     let error: string | null = null;
     if (ckn === null || adet === null) error = 'Geçerli bir sayı girin';
     else if (ckn < row.ckn) error = 'ÇKN azaltılamaz, admin düzeltir';
+    else if (depo < 0) error = `Depoda ${formatQty(row.product.depot_stock)} var`;
     else if (adet < 0) error = 'Satış eksi olamaz';
     else if (bak < 0) error = 'Rafta yeterli ürün yok';
     return {
@@ -118,6 +121,7 @@ export function YagSatisSayfasi({
       satDelta,
       dvr,
       bak,
+      depo,
       diger,
       error,
     };
@@ -215,8 +219,8 @@ export function YagSatisSayfasi({
         <Text style={[styles.cell, styles.colNum, styles.bold]}>{formatQty(totals.bak)}</Text>
       </View>
       <Text style={styles.legend}>
-        ÇKN: depodan çıkarılan · DVR = önceki BAK + ÇKN · BAK = DVR − SATIŞ (ertesi günün
-        kağıdına geçer)
+        ÇKN: depodan rafa çıkarılan (depodan düşer) · DVR = önceki BAK + ÇKN · BAK = DVR −
+        SATIŞ (ertesi günün kağıdına geçer)
       </Text>
 
       <View style={styles.summary}>
@@ -277,10 +281,14 @@ export function YagSatisSayfasi({
                 </Text>
                 {l.error ? (
                   <Text style={styles.error}>{l.error}</Text>
-                ) : l.diger !== 0 ? (
-                  <Text style={styles.note}>
-                    diğer: {l.diger > 0 ? '+' : ''}
-                    {formatQty(l.diger)}
+                ) : editable || l.diger !== 0 ? (
+                  <Text style={styles.sub}>
+                    {editable ? `depo ${formatQty(l.depo)}` : ''}
+                    {l.diger !== 0 ? (
+                      <Text style={styles.note}>
+                        {editable ? ' · ' : ''}diğer: {formatSigned(l.diger)}
+                      </Text>
+                    ) : null}
                   </Text>
                 ) : null}
               </View>
@@ -404,6 +412,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.text,
+  },
+  sub: {
+    fontSize: 11,
+    color: colors.textMuted,
   },
   note: {
     fontSize: 11,

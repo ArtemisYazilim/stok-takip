@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Button, Card, Input, ProductThumb, Screen, SectionTitle, colors } from '@/components/ui';
 import { confirmAction, showAlert } from '@/lib/alerts';
@@ -11,6 +11,36 @@ import { PRODUCT_IMAGE_BUCKET, uploadProductImage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type { Product } from '@/lib/types';
 import { useAuth } from '@/providers/auth-provider';
+
+type StockPlace = 'raf' | 'depo';
+
+const PLACE_OPTIONS: { v: StockPlace; label: string }[] = [
+  { v: 'depo', label: 'Depo' },
+  { v: 'raf', label: 'Raf (dışarısı)' },
+];
+
+/** İki seçenekli düğme grubu (depo / raf). */
+function PlaceSegment({ value, onChange }: { value: StockPlace; onChange: (v: StockPlace) => void }) {
+  return (
+    <View style={styles.segment}>
+      {PLACE_OPTIONS.map((o) => {
+        const active = o.v === value;
+        return (
+          <Pressable
+            key={o.v}
+            onPress={() => {
+              feedback.press();
+              onChange(o.v);
+            }}
+            style={[styles.segBtn, active && styles.segBtnActive]}
+          >
+            <Text style={[styles.segText, active && styles.segTextActive]}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 export default function ProductEditScreen() {
   const router = useRouter();
@@ -23,10 +53,15 @@ export default function ProductEditScreen() {
   const [price, setPrice] = useState('');
   const [minStock, setMinStock] = useState('');
   const [initialStock, setInitialStock] = useState('');
+  const [initialDepot, setInitialDepot] = useState('');
   const [active, setActive] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const [restockQty, setRestockQty] = useState('');
+  // Satın alınan ürün normalde depoya girer; doğrudan rafa da konabilir.
+  const [restockPlace, setRestockPlace] = useState<StockPlace>('depo');
+  const [moveQty, setMoveQty] = useState('');
+  const [adjustPlace, setAdjustPlace] = useState<StockPlace>('raf');
   const [returnQty, setReturnQty] = useState('');
   const [adjustTarget, setAdjustTarget] = useState('');
 
@@ -114,6 +149,7 @@ export default function ProductEditScreen() {
 
       if (isNew) {
         const stockNum = parseNumberInput(initialStock) ?? 0;
+        const depotNum = parseNumberInput(initialDepot) ?? 0;
         const { data, error } = await supabase
           .from('products')
           .insert({ name: name.trim(), sale_price: priceNum, min_stock: minNum })
@@ -121,14 +157,20 @@ export default function ProductEditScreen() {
           .single();
         if (error) throw error;
         productId = (data as Product).id;
-        if (stockNum > 0 && session) {
-          await supabase.from('stock_movements').insert({
-            product_id: productId,
-            profile_id: session.user.id,
-            type: 'alim',
-            qty: stockNum,
-            note: 'Açılış stoku',
-          });
+        const opening = [
+          { type: 'alim', qty: stockNum },
+          { type: 'depo_alim', qty: depotNum },
+        ].filter((o) => o.qty > 0);
+        if (opening.length > 0 && session) {
+          await supabase.from('stock_movements').insert(
+            opening.map((o) => ({
+              product_id: productId,
+              profile_id: session.user.id,
+              type: o.type,
+              qty: o.qty,
+              note: 'Açılış stoku',
+            })),
+          );
         }
       } else {
         const { error } = await supabase
@@ -166,7 +208,7 @@ export default function ProductEditScreen() {
     const { error } = await supabase.from('stock_movements').insert({
       product_id: id,
       profile_id: session.user.id,
-      type: 'alim',
+      type: restockPlace === 'depo' ? 'depo_alim' : 'alim',
       qty,
     });
     setBusy(false);
@@ -177,6 +219,31 @@ export default function ProductEditScreen() {
     }
     feedback.success();
     setRestockQty('');
+    router.back();
+  }
+
+  async function handleMove() {
+    const qty = parseNumberInput(moveQty);
+    if (!qty || qty <= 0 || !id || !session) {
+      showAlert('Hata', 'Geçerli bir miktar girin.');
+      return;
+    }
+    setBusy(true);
+    // Pompacının çizelgedeki ÇKN'siyle aynı hareket: depo −, raf +.
+    const { error } = await supabase.from('stock_movements').insert({
+      product_id: id,
+      profile_id: session.user.id,
+      type: 'cikis',
+      qty,
+    });
+    setBusy(false);
+    if (error) {
+      feedback.error();
+      showAlert('Hata', error.message);
+      return;
+    }
+    feedback.success();
+    setMoveQty('');
     router.back();
   }
 
@@ -211,7 +278,8 @@ export default function ProductEditScreen() {
       showAlert('Hata', 'Geçerli bir stok değeri girin.');
       return;
     }
-    const delta = target - product.stock;
+    const current = adjustPlace === 'raf' ? product.stock : product.depot_stock;
+    const delta = target - current;
     if (delta === 0) {
       showAlert('Bilgi', 'Stok zaten bu değerde.');
       return;
@@ -222,8 +290,9 @@ export default function ProductEditScreen() {
       profile_id: session.user.id,
       type: 'duzeltme',
       qty: Math.abs(delta),
-      delta,
-      note: `Elle düzeltme: ${formatQty(product.stock)} → ${formatQty(target)}`,
+      delta: adjustPlace === 'raf' ? delta : 0,
+      depot_delta: adjustPlace === 'depo' ? delta : 0,
+      note: `Elle düzeltme (${adjustPlace}): ${formatQty(current)} → ${formatQty(target)}`,
     });
     setBusy(false);
     if (error) {
@@ -307,13 +376,22 @@ export default function ProductEditScreen() {
             placeholder="ör. 3"
           />
           {isNew ? (
-            <Input
-              label="Açılış stoku"
-              value={initialStock}
-              onChangeText={setInitialStock}
-              keyboardType="decimal-pad"
-              placeholder="0"
-            />
+            <>
+              <Input
+                label="Açılış stoku · raf (dışarıdaki)"
+                value={initialStock}
+                onChangeText={setInitialStock}
+                keyboardType="decimal-pad"
+                placeholder="0"
+              />
+              <Input
+                label="Açılış stoku · depo"
+                value={initialDepot}
+                onChangeText={setInitialDepot}
+                keyboardType="decimal-pad"
+                placeholder="0"
+              />
+            </>
           ) : (
             <View style={styles.switchRow}>
               <Text style={styles.switchLabel}>Ürün aktif (satışta)</Text>
@@ -326,7 +404,12 @@ export default function ProductEditScreen() {
         {!isNew && product ? (
           <>
             <Card style={{ gap: 12 }}>
-              <SectionTitle text={`Alım Ekle (mevcut: ${formatQty(product.stock)})`} />
+              <SectionTitle text="Alım Ekle" />
+              <Text style={styles.hint}>
+                Raf {formatQty(product.stock)} · Depo {formatQty(product.depot_stock)}. Satın alınan
+                ürün normalde depoya girer; pompacı ÇKN ile rafa çıkarır.
+              </Text>
+              <PlaceSegment value={restockPlace} onChange={setRestockPlace} />
               <Input
                 label="Alınan miktar"
                 value={restockQty}
@@ -334,7 +417,27 @@ export default function ProductEditScreen() {
                 keyboardType="decimal-pad"
                 placeholder="ör. 12"
               />
-              <Button title="Stoka Ekle" variant="success" onPress={handleRestock} loading={busy} />
+              <Button
+                title={restockPlace === 'depo' ? 'Depoya Ekle' : 'Rafa Ekle'}
+                variant="success"
+                onPress={handleRestock}
+                loading={busy}
+              />
+            </Card>
+
+            <Card style={{ gap: 12 }}>
+              <SectionTitle text="Depodan Rafa Çıkar" />
+              <Text style={styles.hint}>
+                Çizelgedeki ÇKN ile aynıdır: depodan düşer, rafa eklenir. Depoda yoksa kabul edilmez.
+              </Text>
+              <Input
+                label="Çıkarılan miktar"
+                value={moveQty}
+                onChangeText={setMoveQty}
+                keyboardType="decimal-pad"
+                placeholder="ör. 24"
+              />
+              <Button title="Rafa Çıkar" onPress={handleMove} loading={busy} />
             </Card>
 
             <Card style={{ gap: 12 }}>
@@ -357,12 +460,13 @@ export default function ProductEditScreen() {
               <Text style={styles.hint}>
                 Sayım sonrası gerçek stoku girin; fark hareket olarak kaydedilir.
               </Text>
+              <PlaceSegment value={adjustPlace} onChange={setAdjustPlace} />
               <Input
-                label="Gerçek stok"
+                label={adjustPlace === 'raf' ? 'Raftaki gerçek stok' : 'Depodaki gerçek stok'}
                 value={adjustTarget}
                 onChangeText={setAdjustTarget}
                 keyboardType="decimal-pad"
-                placeholder={formatQty(product.stock)}
+                placeholder={formatQty(adjustPlace === 'raf' ? product.stock : product.depot_stock)}
               />
               <Button title="Düzelt" variant="danger" onPress={handleAdjust} loading={busy} />
             </Card>
@@ -418,5 +522,30 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 13,
     color: colors.textMuted,
+  },
+  segment: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  segBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+  },
+  segBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  segText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  segTextActive: {
+    color: '#fff',
   },
 });

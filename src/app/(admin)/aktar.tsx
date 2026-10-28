@@ -11,6 +11,7 @@ import {
   availableStockSources,
   columnLetter,
   defaultStockSource,
+  depotFor,
   normalizeKey,
   parseExcelTable,
   stockFor,
@@ -43,6 +44,7 @@ export default function ImportScreen() {
   const [text, setText] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [source, setSource] = useState<StockSource | null>(null);
+  const [depotOn, setDepotOn] = useState(true);
   // Kullanıcının elle açıp kapattığı satırlar (anahtar: normalize ad).
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
@@ -65,6 +67,7 @@ export default function ImportScreen() {
   const src: StockSource =
     source && sources.includes(source) ? source : table ? defaultStockSource(table) : 'yok';
   const hasPrice = table?.columns.price !== undefined;
+  const hasDepot = table?.columns.depo !== undefined;
 
   const byKey = new Map(products.map((p) => [normalizeKey(p.name), p]));
   const seen = new Set<string>();
@@ -73,12 +76,15 @@ export default function ImportScreen() {
     const match = byKey.get(key) ?? null;
     const price = hasPrice ? r.values.price : null;
     const stock = stockFor(r, src);
+    const depot = table && depotOn ? depotFor(r, table) : null;
     const changes: string[] = [];
     let error: string | null = null;
     if (seen.has(key)) error = 'Listede iki kez var';
     else if (price === undefined) error = 'Fiyat hücresi sayı değil';
     else if (stock === undefined) error = 'Stok hücresi sayı değil';
     else if (stock !== null && stock < 0) error = `Stok eksi çıkıyor (${formatQty(stock)})`;
+    else if (depot === undefined) error = 'Depo hücresi sayı değil';
+    else if (depot !== null && depot < 0) error = 'Depo eksi olamaz';
     seen.add(key);
 
     let status: Status;
@@ -89,7 +95,10 @@ export default function ImportScreen() {
         changes.push(`fiyat ${formatQty(match.sale_price)} → ${formatQty(price)}`);
       }
       if (stock != null && stock !== match.stock) {
-        changes.push(`stok ${formatQty(match.stock)} → ${formatQty(stock)}`);
+        changes.push(`raf ${formatQty(match.stock)} → ${formatQty(stock)}`);
+      }
+      if (depot != null && depot !== match.depot_stock) {
+        changes.push(`depo ${formatQty(match.depot_stock)} → ${formatQty(depot)}`);
       }
       if (!match.active) changes.push('yeniden listeye alınır');
       status = changes.length > 0 ? 'guncelle' : 'ayni';
@@ -98,7 +107,18 @@ export default function ImportScreen() {
     // varsayılan seçilmez, istenirse elle işaretlenir.
     const defaultOn = status !== 'yeni' || price != null;
     const on = status !== 'hata' && (toggled[key] ?? defaultOn);
-    return { key, r, match, price: price ?? null, stock: stock ?? null, changes, status, error, on };
+    return {
+      key,
+      r,
+      match,
+      price: price ?? null,
+      stock: stock ?? null,
+      depot: depot ?? null,
+      changes,
+      status,
+      error,
+      on,
+    };
   });
 
   const count = (s: Status) => rows.filter((x) => x.status === s).length;
@@ -111,6 +131,7 @@ export default function ImportScreen() {
     setText('');
     setToggled({});
     setSource(null);
+    setDepotOn(true);
   }
 
   async function runImport() {
@@ -132,6 +153,8 @@ export default function ImportScreen() {
       sort_order: x.r.order,
       // null: stoka dokunulmaz.
       stock: src === 'yok' ? null : x.stock,
+      // null: depoya dokunulmaz (Excel'de DEPO sütunu yoksa ya da kapatıldıysa).
+      depot: x.depot,
     }));
     const { data, error } = await supabase.rpc('admin_import_products', { items });
     setBusy(false);
@@ -167,8 +190,9 @@ export default function ImportScreen() {
           <SectionTitle text="1. Excel'den kopyala" />
           <Text style={styles.hint}>
             Excel&apos;de yağ listesini başlık satırıyla birlikte seç (YAĞ ADI, FİYAT, ÇKN, DVR, 1
-            GN, 2.GN, BAK.), Ctrl+C ile kopyala ve aşağıya yapıştır. Başlık yoksa A sütunu ad, B
-            fiyat, C stok sayılır.
+            GN, 2.GN, BAK.), Ctrl+C ile kopyala ve aşağıya yapıştır. Depo stoku da aktarılsın
+            istenirse Excel&apos;e &quot;DEPO&quot; başlıklı bir sütun ekle. Başlık yoksa A sütunu ad,
+            B fiyat, C stok sayılır.
           </Text>
           <TextInput
             value={text}
@@ -214,8 +238,40 @@ export default function ImportScreen() {
               </View>
               <Text style={styles.hint}>
                 Kağıdın kuralı: DVR = önceki BAK + ÇKN, BAK = DVR − 1 GN − 2.GN. Boş hücre 0
-                sayılır. BAK. doluysa o, değilse DVR − satışlar önerilir.
+                sayılır. BAK. doluysa o, değilse DVR − satışlar önerilir. Bu, dışarıdaki raf
+                stokudur.
               </Text>
+              {hasDepot ? (
+                <>
+                  <Text style={styles.label}>Depo stoku</Text>
+                  <View style={styles.chips}>
+                    {[
+                      { v: true, label: 'DEPO sütunundan al' },
+                      { v: false, label: 'Depoya dokunma' },
+                    ].map((o) => {
+                      const active = depotOn === o.v;
+                      return (
+                        <Pressable
+                          key={o.label}
+                          onPress={() => {
+                            feedback.press();
+                            setDepotOn(o.v);
+                          }}
+                          style={[styles.chip, active && styles.chipActive]}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {o.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.hint}>
+                  Tabloda DEPO sütunu yok; depo stokuna dokunulmaz.
+                </Text>
+              )}
             </Card>
 
             <Card style={{ gap: 8 }}>
@@ -244,7 +300,8 @@ export default function ImportScreen() {
                     <Text style={styles.rowName}>{x.r.name}</Text>
                     <Text style={styles.rowMeta}>
                       {x.price != null ? formatMoney(x.price) : 'fiyat yok'}
-                      {x.stock != null ? ` · stok ${formatQty(x.stock)}` : ''}
+                      {x.stock != null ? ` · raf ${formatQty(x.stock)}` : ''}
+                      {x.depot != null ? ` · depo ${formatQty(x.depot)}` : ''}
                     </Text>
                     {x.error ? (
                       <Text style={styles.rowError}>{x.error}</Text>

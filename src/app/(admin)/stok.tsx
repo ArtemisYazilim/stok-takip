@@ -37,7 +37,11 @@ export default function AdminStockScreen() {
     setRefreshing(false);
   }
 
-  const totalValue = products.reduce((sum, p) => sum + p.stock * p.sale_price, 0);
+  // Değer raf + depo toplamıdır: depodaki ürün de işletmenin malıdır.
+  const totalValue = products.reduce(
+    (sum, p) => sum + (p.stock + p.depot_stock) * p.sale_price,
+    0,
+  );
 
   return (
     <Screen>
@@ -73,10 +77,11 @@ export default function AdminStockScreen() {
                 <Text style={styles.rowPrice}>Fiyat {formatMoney(item.sale_price)}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <Text style={styles.rowStockLabel}>Kalan</Text>
+                <Text style={styles.rowStockLabel}>Raf</Text>
                 <Text style={[styles.rowStock, low && { color: colors.danger }]}>
                   {formatQty(item.stock)}
                 </Text>
+                <Text style={styles.rowDepot}>depo {formatQty(item.depot_stock)}</Text>
                 {low ? <Badge text="Stok az" color={colors.danger} /> : null}
               </View>
             </Pressable>
@@ -152,6 +157,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+  },
+  rowDepot: {
+    fontSize: 12,
+    color: colors.textMuted,
   },
   fabWrap: {
     position: 'absolute',

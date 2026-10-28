@@ -1,7 +1,10 @@
 export type Role = 'admin' | 'calisan';
 
-/** cikis = depodan dışarıdaki rafa çıkarılan (kağıttaki ÇKN), stoğu artırır. */
-export type MovementType = 'satis' | 'alim' | 'duzeltme' | 'iade' | 'cikis';
+/**
+ * cikis = depodan dışarıdaki rafa çıkarılan (kağıttaki ÇKN): depo −, raf +.
+ * depo_alim = satın alınıp depoya giren; alim = doğrudan rafa giren.
+ */
+export type MovementType = 'satis' | 'alim' | 'duzeltme' | 'iade' | 'cikis' | 'depo_alim';
 
 export interface Profile {
   id: string;
@@ -17,7 +20,10 @@ export interface Product {
   name: string;
   unit: string;
   sale_price: number;
+  /** Dışarıdaki raf stoku (pompacının sattığı; kağıttaki DVR/BAK). */
   stock: number;
+  /** Depodaki stok; ÇKN ile rafa geçer. */
+  depot_stock: number;
   min_stock: number;
   active: boolean;
   image_url: string | null;
@@ -64,7 +70,10 @@ export interface StockMovement {
   shift_id: string | null;
   type: MovementType;
   qty: number;
+  /** Raf stokuna etkisi. */
   delta: number;
+  /** Depo stokuna etkisi. */
+  depot_delta: number;
   unit_price: number | null;
   note: string | null;
   created_at: string;
@@ -118,4 +127,5 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
   duzeltme: 'Düzeltme',
   iade: 'İade',
   cikis: 'Depodan Çıkış',
+  depo_alim: 'Depoya Alım',
 };

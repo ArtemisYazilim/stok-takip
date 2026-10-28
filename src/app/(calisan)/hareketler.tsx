@@ -5,15 +5,29 @@ import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 
 import { Badge, EmptyState, Input, Screen, colors } from '@/components/ui';
 import { feedback } from '@/lib/feedback';
-import { formatDateTime, formatDuration, formatMoney, formatQty } from '@/lib/format';
+import { formatDateTime, formatDuration, formatMoney, formatQty, movementEffect } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { MOVEMENT_LABELS, type MovementType, type Shift, type StockMovement } from '@/lib/types';
 import { useAuth } from '@/providers/auth-provider';
+
+/** Raf değişimi; depodan çıkışta depo düşüşü altında ayrıca yazılır. */
+function MovementDelta({ m }: { m: StockMovement }) {
+  const effect = movementEffect(m);
+  return (
+    <>
+      <Text style={[styles.rowDelta, { color: effect.negative ? colors.danger : colors.success }]}>
+        {effect.main}
+      </Text>
+      {effect.depot ? <Text style={styles.rowNote}>{effect.depot}</Text> : null}
+    </>
+  );
+}
 
 const TYPE_COLORS: Record<string, string> = {
   satis: colors.primary,
   iade: colors.textMuted,
   cikis: colors.primaryDark,
+  depo_alim: colors.success,
 };
 
 type TypeFilter = 'all' | MovementType;
@@ -294,12 +308,7 @@ export default function MyMovementsScreen() {
                 ) : null}
               </View>
               <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                <Text
-                  style={[styles.rowDelta, { color: item.movement.delta < 0 ? colors.danger : colors.success }]}
-                >
-                  {item.movement.delta > 0 ? '+' : ''}
-                  {formatQty(item.movement.delta)}
-                </Text>
+                <MovementDelta m={item.movement} />
                 <Badge
                   text={MOVEMENT_LABELS[item.movement.type] ?? item.movement.type}
                   color={TYPE_COLORS[item.movement.type] ?? colors.textMuted}

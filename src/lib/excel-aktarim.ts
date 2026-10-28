@@ -4,7 +4,7 @@
  * olarak verir; dosya seçici veya xlsx kütüphanesi gerekmez, web'de de çalışır.
  */
 
-export type ImportField = 'name' | 'price' | 'ckn' | 'dvr' | 'gn1' | 'gn2' | 'bak' | 'stok';
+export type ImportField = 'name' | 'price' | 'ckn' | 'dvr' | 'gn1' | 'gn2' | 'bak' | 'stok' | 'depo';
 
 export const FIELD_LABELS: Record<ImportField, string> = {
   name: 'YAĞ ADI',
@@ -15,6 +15,7 @@ export const FIELD_LABELS: Record<ImportField, string> = {
   gn2: '2.GN',
   bak: 'BAK.',
   stok: 'STOK',
+  depo: 'DEPO',
 };
 
 // Başlık hücresi normalize edilince (Türkçe harf katlanır, harf/rakam dışı
@@ -29,6 +30,7 @@ const HEADER_ALIASES: Record<ImportField, string[]> = {
   gn2: ['2GN', '2GUN'],
   bak: ['BAK', 'BAKIYE', 'KALAN'],
   stok: ['STOK', 'MEVCUT'],
+  depo: ['DEPO', 'DEPOSTOK', 'DEPOSTOKU', 'DEPODA', 'DEPOMEVCUT'],
 };
 
 const TURKISH_FOLD: Record<string, string> = {
@@ -143,6 +145,18 @@ export function parseExcelTable(text: string): ParsedTable {
   }
 
   return { columns, headerFound: headerIndex >= 0, rows };
+}
+
+/**
+ * Satırın depo stoku: kağıtta depo sütunu yoktur, admin Excel'e "DEPO"
+ * sütunu eklerse aktarılır. Sütun yoksa null (depoya dokunulmaz), boş
+ * hücre 0, sayı olmayan hücre undefined.
+ */
+export function depotFor(row: ParsedRow, table: ParsedTable): number | null | undefined {
+  if (table.columns.depo === undefined) return null;
+  const value = row.values.depo;
+  if (value === undefined) return undefined;
+  return value ?? 0;
 }
 
 /** Stok hangi sütundan alınacak. */

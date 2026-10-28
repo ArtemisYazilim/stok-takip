@@ -12,6 +12,7 @@ import {
   formatDuration,
   formatMoney,
   formatQty,
+  movementEffect,
 } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import {
@@ -30,6 +31,7 @@ const TYPE_COLORS: Record<string, string> = {
   duzeltme: colors.warning,
   iade: colors.textMuted,
   cikis: colors.primaryDark,
+  depo_alim: colors.success,
 };
 
 type TypeFilter = 'all' | MovementType | 'not' | 'bildirim';
@@ -42,6 +44,7 @@ const TYPE_OPTS: { v: TypeFilter; label: string }[] = [
   { v: 'iade', label: 'İade' },
   { v: 'duzeltme', label: 'Düzeltme' },
   { v: 'cikis', label: 'Depodan Çıkış' },
+  { v: 'depo_alim', label: 'Depoya Alım' },
   { v: 'not', label: 'Not' },
   { v: 'bildirim', label: 'Bildirim' },
 ];
@@ -334,6 +337,7 @@ export default function MovementsScreen() {
   function renderEntry(e: FeedEntry) {
     if (e.kind === 'movement' && e.m) {
       const m = e.m;
+      const effect = movementEffect(m);
       return (
         <View style={styles.row}>
           <View style={{ flex: 1, gap: 3 }}>
@@ -344,10 +348,10 @@ export default function MovementsScreen() {
             {m.note ? <Text style={styles.rowNote}>{m.note}</Text> : null}
           </View>
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <Text style={[styles.rowDelta, { color: m.delta < 0 ? colors.danger : colors.success }]}>
-              {m.delta > 0 ? '+' : ''}
-              {formatQty(m.delta)}
+            <Text style={[styles.rowDelta, { color: effect.negative ? colors.danger : colors.success }]}>
+              {effect.main}
             </Text>
+            {effect.depot ? <Text style={styles.rowNote}>{effect.depot}</Text> : null}
             <Badge
               text={MOVEMENT_LABELS[m.type] ?? m.type}
               color={TYPE_COLORS[m.type] ?? colors.textMuted}

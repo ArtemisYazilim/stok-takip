@@ -74,6 +74,31 @@ export function formatLongDateKey(key: string): string {
   });
 }
 
+/** "+5" / "−3" gibi işaretli miktar. */
+export function formatSigned(value: number): string {
+  return `${value > 0 ? '+' : ''}${formatQty(value)}`;
+}
+
+/**
+ * Hareketin stoka etkisi: raf değişimi ana metin, depo değişimi ayrı.
+ * Depoya alımda raf değişmez; o zaman ana metin depo olur.
+ */
+export function movementEffect(m: { delta: number; depot_delta?: number | null }): {
+  main: string;
+  negative: boolean;
+  depot: string | null;
+} {
+  const depot = Number(m.depot_delta ?? 0);
+  if (m.delta === 0 && depot !== 0) {
+    return { main: `depo ${formatSigned(depot)}`, negative: depot < 0, depot: null };
+  }
+  return {
+    main: formatSigned(m.delta),
+    negative: m.delta < 0,
+    depot: depot !== 0 ? `depo ${formatSigned(depot)}` : null,
+  };
+}
+
 /** "12,5" gibi Türkçe ondalık girdileri sayıya çevirir; geçersizse null. */
 export function parseNumberInput(text: string): number | null {
   const normalized = text.trim().replace(',', '.');

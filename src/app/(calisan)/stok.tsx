@@ -53,10 +53,11 @@ export default function WorkerStockScreen() {
                 <Text style={styles.rowMeta}>Fiyat {formatMoney(item.sale_price)}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <Text style={styles.rowStockLabel}>Kalan</Text>
+                <Text style={styles.rowStockLabel}>Raf</Text>
                 <Text style={[styles.rowStock, low && { color: colors.danger }]}>
                   {formatQty(item.stock)}
                 </Text>
+                <Text style={styles.rowDepot}>depo {formatQty(item.depot_stock)}</Text>
                 {low ? <Badge text="Stok az" color={colors.danger} /> : null}
               </View>
             </View>
@@ -111,5 +112,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+  },
+  rowDepot: {
+    fontSize: 12,
+    color: colors.textMuted,
   },
 });
