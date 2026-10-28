@@ -10,12 +10,36 @@ permissions:
   pages: write
   id-token: write
 
+# Yarıda kesilen geçiş veritabanını tutarsız bırakmasın diye yeni push
+# eskisini iptal etmez, sırasını bekler.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
+  # Yeni kod eski şemayla yayına çıkmasın: önce supabase/migrations
+  # altındaki uygulanmamış geçişler canlı veritabanına uygulanır.
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Veritabanı geçişlerini uygula
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL secret'ı tanımlı değil (KURULUM.md → Veritabanı geçişleri)."
+            exit 1
+          fi
+          npx supabase db push --db-url "$SUPABASE_DB_URL" --yes
+
   build:
+    needs: migrate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

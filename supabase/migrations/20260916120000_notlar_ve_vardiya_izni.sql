@@ -1,8 +1,9 @@
 -- ============================================================
 -- 004 — Çalışan notları + vardiya açma izni + satışta iade
--- Mevcut kuruluma (schema.sql + 002 + 003 çalıştırılmış) eklemek
--- için bu dosyanın tamamını Supabase SQL Editor'de çalıştırın.
--- Tüm ifadeler tekrar çalıştırılabilir (idempotent).
+-- Tüm ifadeler tekrar çalıştırılabilir (idempotent). Canlı veritabanına
+-- CLI'dan önce SQL Editor'de elle uygulandığı için orada yeniden
+-- çalıştırılmaz; `supabase migration repair --status applied` ile
+-- geçmişe işlendi. Taze kurulumda `npm run db:push` sırayla uygular.
 -- ============================================================
 
 -- ---- Vardiya açma izni --------------------------------------
