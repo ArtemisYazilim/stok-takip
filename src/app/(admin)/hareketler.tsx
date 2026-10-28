@@ -29,6 +29,7 @@ const TYPE_COLORS: Record<string, string> = {
   alim: colors.success,
   duzeltme: colors.warning,
   iade: colors.textMuted,
+  cikis: colors.primaryDark,
 };
 
 type TypeFilter = 'all' | MovementType | 'not' | 'bildirim';
@@ -40,6 +41,7 @@ const TYPE_OPTS: { v: TypeFilter; label: string }[] = [
   { v: 'alim', label: 'Alım' },
   { v: 'iade', label: 'İade' },
   { v: 'duzeltme', label: 'Düzeltme' },
+  { v: 'cikis', label: 'Depodan Çıkış' },
   { v: 'not', label: 'Not' },
   { v: 'bildirim', label: 'Bildirim' },
 ];

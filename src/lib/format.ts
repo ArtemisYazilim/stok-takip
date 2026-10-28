@@ -37,6 +37,43 @@ export function formatDuration(startIso: string, endIso?: string | null): string
   return h > 0 ? `${h} sa ${m} dk` : `${m} dk`;
 }
 
+/**
+ * Cihazın yerel saatine göre "2026-10-26" gün anahtarı. Nöbet günü,
+ * vardiyanın başladığı yerel gündür; UTC kullanılırsa gece 00-03 arası
+ * açılan nöbet bir önceki güne düşerdi.
+ */
+export function toDateKey(value: Date | string): string {
+  const d = typeof value === 'string' ? new Date(value) : value;
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+/** Gün anahtarını yerel gece yarısı Date'ine çevirir. */
+export function fromDateKey(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** "26.10.2026" */
+export function formatDateKey(key: string): string {
+  return fromDateKey(key).toLocaleDateString('tr-TR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+/** "26 Ekim 2026 Pazartesi" */
+export function formatLongDateKey(key: string): string {
+  return fromDateKey(key).toLocaleDateString('tr-TR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    weekday: 'long',
+  });
+}
+
 /** "12,5" gibi Türkçe ondalık girdileri sayıya çevirir; geçersizse null. */
 export function parseNumberInput(text: string): number | null {
   const normalized = text.trim().replace(',', '.');

@@ -17,5 +17,5 @@ export default function Index() {
 
   if (!session) return <Redirect href="/login" />;
   if (profile?.role === 'admin') return <Redirect href="/(admin)/stok" />;
-  return <Redirect href="/(calisan)/satis" />;
+  return <Redirect href="/(calisan)/nobet" />;
 }

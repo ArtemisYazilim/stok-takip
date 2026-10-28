@@ -11,7 +11,7 @@ export default function AdminLayout() {
 
   if (loading) return null;
   if (!session) return <Redirect href="/login" />;
-  if (profile && profile.role !== 'admin') return <Redirect href="/(calisan)/satis" />;
+  if (profile && profile.role !== 'admin') return <Redirect href="/(calisan)/nobet" />;
 
   return (
     <Tabs

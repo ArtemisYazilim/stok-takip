@@ -13,6 +13,7 @@ import { useAuth } from '@/providers/auth-provider';
 const TYPE_COLORS: Record<string, string> = {
   satis: colors.primary,
   iade: colors.textMuted,
+  cikis: colors.primaryDark,
 };
 
 type TypeFilter = 'all' | MovementType;
@@ -22,6 +23,7 @@ const TYPE_OPTS: { v: TypeFilter; label: string }[] = [
   { v: 'all', label: 'Tümü' },
   { v: 'satis', label: 'Satış' },
   { v: 'iade', label: 'İade' },
+  { v: 'cikis', label: 'Depodan Çıkış' },
 ];
 
 const TIME_OPTS: { v: TimeFilter; label: string }[] = [
@@ -273,7 +275,13 @@ export default function MyMovementsScreen() {
             <View style={styles.row}>
               <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
                 <Ionicons
-                  name={item.movement.type === 'satis' ? 'cart-outline' : 'return-down-back-outline'}
+                  name={
+                    item.movement.type === 'satis'
+                      ? 'cart-outline'
+                      : item.movement.type === 'cikis'
+                        ? 'archive-outline'
+                        : 'return-down-back-outline'
+                  }
                   size={20}
                   color={colors.primary}
                 />

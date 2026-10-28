@@ -23,10 +23,12 @@ export default function WorkerLayout() {
       }}
     >
       <Tabs.Screen
-        name="satis"
+        name="nobet"
         options={{
-          title: 'Satış',
-          tabBarIcon: ({ color, size }) => <Ionicons name="cart-outline" color={color} size={size} />,
+          title: 'Nöbet',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -60,6 +62,12 @@ export default function WorkerLayout() {
             <Ionicons name="create-outline" color={color} size={size} />
           ),
         }}
+      />
+      {/* Çizelge tam ekran açılır; altta uygulama sekmeleri yerine kağıttaki
+          gibi "1. Sayfa / 2. Sayfa" seçimi durur. */}
+      <Tabs.Screen
+        name="cizelge"
+        options={{ href: null, tabBarStyle: { display: 'none' } }}
       />
     </Tabs>
   );
