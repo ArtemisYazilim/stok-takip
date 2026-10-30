@@ -5,36 +5,17 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PompaSayfasi } from '@/components/cizelge/pompa-sayfasi';
-import { round2, YagSatisSayfasi, type OilRow, type SoldLine } from '@/components/cizelge/yag-satis-sayfasi';
+import { YagSatisSayfasi } from '@/components/cizelge/yag-satis-sayfasi';
 import { Badge, Button, EmptyState, Screen, colors } from '@/components/ui';
 import { showAlert } from '@/lib/alerts';
+import { loadPrevMeters, loadSheet, saveSheet as upsertSheet } from '@/lib/cizelge-verisi';
 import { feedback } from '@/lib/feedback';
 import { formatDateKey, toDateKey } from '@/lib/format';
+import { loadOilSheet, type OilRow, type SoldLine } from '@/lib/nobet-stok';
 import { STATION_NAME } from '@/lib/pompa';
 import { supabase } from '@/lib/supabase';
-import type { MeterReading, Product, Shift, ShiftSheet, ShiftSheetExtras } from '@/lib/types';
+import type { MeterReading, Shift, ShiftSheet, ShiftSheetExtras } from '@/lib/types';
 import { useAuth } from '@/providers/auth-provider';
-
-interface MovementLite {
-  product_id: string;
-  shift_id: string | null;
-  type: string;
-  qty: number;
-  delta: number;
-  unit_price: number | null;
-  products?: { name: string } | null;
-}
-
-function sumByProduct(rows: { product_id: string; delta: number }[]): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const r of rows) map.set(r.product_id, (map.get(r.product_id) ?? 0) + Number(r.delta));
-  return map;
-}
-
-/** PostgREST "tablo yok" hataları: 005 geçişi henüz çalıştırılmamış demektir. */
-function isMissingTable(code?: string) {
-  return code === 'PGRST205' || code === '42P01';
-}
 
 export default function CizelgeScreen() {
   const router = useRouter();
@@ -66,123 +47,17 @@ export default function CizelgeScreen() {
       return;
     }
 
-    // Nöbet penceresindeki tüm hareketler (herkesin): nöbet başındaki stok
-    // (önceki BAK) için pencere içindeki her stok değişimi geri alınır.
-    let movQuery = supabase
-      .from('stock_movements')
-      .select('product_id, shift_id, type, qty, delta, unit_price, products(name)')
-      .gte('created_at', sh.started_at);
-    if (sh.ended_at) movQuery = movQuery.lte('created_at', sh.ended_at);
-
-    const [prodRes, movRes, sheetRes, prevRes] = await Promise.all([
-      supabase
-        .from('products')
-        .select('*')
-        .eq('active', true)
-        .order('sort_order', { ascending: true, nullsFirst: false })
-        .order('name'),
-      movQuery,
-      supabase.from('shift_sheets').select('*').eq('shift_id', sh.id).maybeSingle(),
-      supabase
-        .from('shifts')
-        .select('id')
-        .lt('started_at', sh.started_at)
-        .order('started_at', { ascending: false })
-        .limit(10),
+    const [oil, sheetData, prev] = await Promise.all([
+      loadOilSheet(sh),
+      loadSheet(sh.id),
+      loadPrevMeters(sh.started_at),
     ]);
-    const products = (prodRes.data as Product[]) ?? [];
-    const movements = (movRes.data as unknown as MovementLite[]) ?? [];
-
-    // Kapanmış nöbette BAK = kapanıştaki stok. Devir sayımı yapıldıysa sayım
-    // anındaki beklenen stok kullanılır; admin sayımsız kapattıysa bugünkü
-    // stoktan kapanıştan sonraki hareketler geri alınır.
-    let endStock: Map<string, number> | null = null;
-    if (sh.ended_at) {
-      const { data: counts } = await supabase
-        .from('shift_counts')
-        .select('product_id, expected_qty')
-        .eq('shift_id', sh.id);
-      if (counts && counts.length > 0) {
-        endStock = new Map(counts.map((c) => [c.product_id as string, Number(c.expected_qty)]));
-      } else {
-        const { data: after } = await supabase
-          .from('stock_movements')
-          .select('product_id, delta')
-          .gt('created_at', sh.ended_at);
-        const afterSum = sumByProduct(after ?? []);
-        endStock = new Map(products.map((p) => [p.id, p.stock - (afterSum.get(p.id) ?? 0)]));
-      }
-    }
-
-    const windowSum = sumByProduct(movements);
-    // ÇKN: pencerede rafa giren ürün. Pompacının depodan çıkışı da adminin
-    // alımı da kağıtta aynı sütuna yazılır.
-    const cknMap = sumByProduct(
-      movements.filter((m) => m.type === 'cikis' || m.type === 'alim'),
-    );
-    const soldMap = new Map<string, SoldLine>();
-    let total = 0;
-    for (const m of movements) {
-      if (m.shift_id !== sh.id || (m.type !== 'satis' && m.type !== 'iade')) continue;
-      const sign = m.type === 'satis' ? 1 : -1;
-      const line = soldMap.get(m.product_id) ?? {
-        productId: m.product_id,
-        name: m.products?.name ?? 'Ürün',
-        qty: 0,
-        revenue: 0,
-      };
-      line.qty += sign * Number(m.qty);
-      line.revenue += sign * Number(m.qty) * Number(m.unit_price ?? 0);
-      total += sign * Number(m.qty) * Number(m.unit_price ?? 0);
-      soldMap.set(m.product_id, line);
-    }
-
-    setRows(
-      products.map((p) => {
-        const kalan = endStock ? (endStock.get(p.id) ?? p.stock) : p.stock;
-        return {
-          product: p,
-          kalan: round2(kalan),
-          onceki: round2(kalan - (windowSum.get(p.id) ?? 0)),
-          ckn: round2(cknMap.get(p.id) ?? 0),
-          satilan: round2(soldMap.get(p.id)?.qty ?? 0),
-        };
-      }),
-    );
-    setSold(
-      [...soldMap.values()]
-        .filter((l) => round2(l.qty) !== 0)
-        .sort((a, b) => a.name.localeCompare(b.name, 'tr')),
-    );
-    setRevenue(round2(total));
-
-    if (sheetRes.error && isMissingTable(sheetRes.error.code)) {
-      setSheetMissing(true);
-    } else {
-      setSheetMissing(false);
-      setSheet((sheetRes.data as ShiftSheet) ?? null);
-    }
-
-    // Sayaçlar istasyonundur, kişiye ait değil: önceki okuma, kim girerse
-    // girsin bir önceki nöbetlerden hortum bazında en yeni dolu değerdir.
-    const prevIds = ((prevRes.data as { id: string }[]) ?? []).map((r) => r.id);
-    const merged: Record<string, MeterReading> = {};
-    if (prevIds.length > 0 && !(sheetRes.error && isMissingTable(sheetRes.error.code))) {
-      const { data: prevSheets } = await supabase
-        .from('shift_sheets')
-        .select('shift_id, meters')
-        .in('shift_id', prevIds);
-      const byShift = new Map(
-        ((prevSheets as Pick<ShiftSheet, 'shift_id' | 'meters'>[]) ?? []).map((s) => [s.shift_id, s.meters]),
-      );
-      for (const sid of prevIds) {
-        for (const [kod, r] of Object.entries(byShift.get(sid) ?? {})) {
-          const cur = merged[kod] ?? { m: null, e: null };
-          merged[kod] = { m: cur.m ?? r.m ?? null, e: cur.e ?? r.e ?? null };
-        }
-      }
-    }
-    setPrevMeters(merged);
+    setRows(oil.rows);
+    setSold(oil.sold);
+    setRevenue(oil.revenue);
+    setSheetMissing(sheetData.missing);
+    setSheet(sheetData.sheet);
+    setPrevMeters(prev);
     setLoaded(true);
   }, [id]);
 
@@ -200,24 +75,14 @@ export default function CizelgeScreen() {
 
   async function saveSheet(meters: Record<string, MeterReading>, extras: ShiftSheetExtras) {
     if (!shift || !session) return false;
-    const { data, error } = await supabase
-      .from('shift_sheets')
-      .upsert({
-        shift_id: shift.id,
-        meters,
-        extras,
-        updated_by: session.user.id,
-        updated_at: new Date().toISOString(),
-      })
-      .select('*')
-      .single();
+    const { sheet: saved, error } = await upsertSheet(shift.id, session.user.id, meters, extras);
     if (error) {
       feedback.error();
-      showAlert('Hata', error.message);
+      showAlert('Hata', error);
       return false;
     }
     feedback.success();
-    setSheet(data as ShiftSheet);
+    setSheet(saved);
     return true;
   }
 

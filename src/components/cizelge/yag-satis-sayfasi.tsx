@@ -5,39 +5,9 @@ import { Button, EmptyState, colors } from '@/components/ui';
 import { showAlert } from '@/lib/alerts';
 import { feedback } from '@/lib/feedback';
 import { formatMoney, formatQty, formatSigned, parseNumberInput } from '@/lib/format';
+import { round2, type OilRow, type SoldLine } from '@/lib/nobet-stok';
 import { supabase } from '@/lib/supabase';
-import type { Product } from '@/lib/types';
 import { useAuth } from '@/providers/auth-provider';
-
-/**
- * Kağıttaki yağ satış listesinin bir satırı (bir ürün, bir nöbet).
- * Kağıdın kuralı: DVR = önceki BAK + ÇKN, BAK = DVR − satış; BAK ertesi
- * günün kağıdında önceki stok olarak yazılır. Uygulamada BAK raftaki
- * stoktur, ertesi nöbete kendiliğinden geçer.
- */
-export interface OilRow {
-  product: Product;
-  /** Nöbet başında raftaki stok (önceki nöbetin BAK'ı). */
-  onceki: number;
-  /** ÇKN: nöbet içinde depodan rafa çıkarılan (depodan çıkış + admin alımı). */
-  ckn: number;
-  /** Bu nöbetin net satışı (satış − iade); kağıttaki 1 GN / 2.GN. */
-  satilan: number;
-  /** BAK: nöbet sonundaki (açık nöbette şu anki) raf stoku. */
-  kalan: number;
-}
-
-/** Kağıdın sağındaki "YAĞ ADI / ADET / FİYAT / TUTAR" dökümünün satırı. */
-export interface SoldLine {
-  productId: string;
-  name: string;
-  qty: number;
-  revenue: number;
-}
-
-export function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
 
 /** Hücre metni: boş hücre kağıttaki gibi 0 sayılır; geçersizse null. */
 function parseCell(text: string): number | null {
