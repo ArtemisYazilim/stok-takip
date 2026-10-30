@@ -1,28 +1,43 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { Badge, Button, EmptyState, ProductThumb, Screen, colors } from '@/components/ui';
-import { formatMoney, formatQty } from '@/lib/format';
+import { StokTablosu } from '@/components/stok-tablosu';
+import { Button, Screen, colors } from '@/components/ui';
+import { VardiyaDefteri } from '@/components/vardiya-defteri';
+import { feedback } from '@/lib/feedback';
+import { formatDateKey, formatMoney, toDateKey } from '@/lib/format';
+import { liveOilRows, loadOilSheet, loadProducts, type OilRow } from '@/lib/nobet-stok';
 import { supabase } from '@/lib/supabase';
-import type { Product } from '@/lib/types';
+import type { Shift } from '@/lib/types';
 import { useAuth } from '@/providers/auth-provider';
+
+/** Bu genişlikten itibaren kağıttaki gibi stok solda, vardiyalar sağda. */
+const WIDE = 900;
 
 export default function AdminStockScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
+  const { width } = useWindowDimensions();
+  const wide = width >= WIDE;
+  const [pane, setPane] = useState<'stok' | 'vardiya'>('stok');
+  const [shift, setShift] = useState<Shift | null>(null);
+  const [rows, setRows] = useState<OilRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    // Sütunlar o anki nöbete göre: aynı anda birden çok açık nöbet varsa en
+    // son başlayan. Kimse nöbette değilse sadece raf ve depo stoku.
     const { data } = await supabase
-      .from('products')
-      .select('*')
-      .eq('active', true)
-      .order('sort_order', { ascending: true, nullsFirst: false })
-      .order('name');
-    setProducts((data as Product[]) ?? []);
+      .from('shifts')
+      .select('*, profiles(full_name)')
+      .is('ended_at', null)
+      .order('started_at', { ascending: false })
+      .limit(1);
+    const open = ((data as Shift[]) ?? [])[0] ?? null;
+    setRows(open ? (await loadOilSheet(open)).rows : liveOilRows(await loadProducts()));
+    setShift(open);
   }, []);
 
   useFocusEffect(
@@ -38,57 +53,22 @@ export default function AdminStockScreen() {
   }
 
   // Değer raf + depo toplamıdır: depodaki ürün de işletmenin malıdır.
-  const totalValue = products.reduce(
-    (sum, p) => sum + (p.stock + p.depot_stock) * p.sale_price,
+  const totalValue = rows.reduce(
+    (sum, r) => sum + (r.product.stock + r.product.depot_stock) * r.product.sale_price,
     0,
   );
 
-  return (
-    <Screen>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Stok</Text>
-          <Text style={styles.subtitle}>
-            {products.length} ürün · toplam değer {formatMoney(totalValue)}
-          </Text>
-        </View>
-        <Pressable onPress={signOut} hitSlop={8}>
-          <Ionicons name="log-out-outline" size={24} color={colors.textMuted} />
-        </Pressable>
-      </View>
-
-      <FlatList
-        data={products}
-        keyExtractor={(p) => p.id}
-        contentContainerStyle={styles.list}
+  const stockPane = (
+    <View style={styles.pane}>
+      <StokTablosu
+        rows={rows}
+        showDepot
+        onPressRow={(r) => router.push({ pathname: '/(admin)/urun', params: { id: r.product.id } })}
         refreshing={refreshing}
         onRefresh={onRefresh}
-        ListEmptyComponent={<EmptyState text="Henüz ürün yok. Sağ alttan ekleyin." />}
-        renderItem={({ item }) => {
-          const low = item.stock <= item.min_stock;
-          return (
-            <Pressable
-              style={styles.row}
-              onPress={() => router.push({ pathname: '/(admin)/urun', params: { id: item.id } })}
-            >
-              <ProductThumb uri={item.image_url} size={48} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.rowName}>{item.name}</Text>
-                <Text style={styles.rowPrice}>Fiyat {formatMoney(item.sale_price)}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <Text style={styles.rowStockLabel}>Raf</Text>
-                <Text style={[styles.rowStock, low && { color: colors.danger }]}>
-                  {formatQty(item.stock)}
-                </Text>
-                <Text style={styles.rowDepot}>depo {formatQty(item.depot_stock)}</Text>
-                {low ? <Badge text="Stok az" color={colors.danger} /> : null}
-              </View>
-            </Pressable>
-          );
-        }}
+        bottomInset={70}
+        emptyText="Henüz ürün yok. Aşağıdan ekleyin."
       />
-
       <View style={styles.fabWrap}>
         <Button
           title="Excel'den Aktar"
@@ -99,6 +79,62 @@ export default function AdminStockScreen() {
         />
         <Button title="+ Yeni Ürün" onPress={() => router.push('/(admin)/urun')} style={{ flex: 1 }} />
       </View>
+    </View>
+  );
+
+  return (
+    <Screen>
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Stok</Text>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {rows.length} ürün · toplam değer {formatMoney(totalValue)} ·{' '}
+            {shift
+              ? `nöbette: ${shift.profiles?.full_name || '—'} (${formatDateKey(toDateKey(shift.started_at))})`
+              : 'açık nöbet yok'}
+          </Text>
+        </View>
+        <Pressable onPress={signOut} hitSlop={8}>
+          <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
+        </Pressable>
+      </View>
+
+      {wide ? (
+        <View style={styles.columns}>
+          <View style={styles.left}>{stockPane}</View>
+          <View style={styles.right}>
+            <Text style={styles.rightTitle}>Vardiyalar</Text>
+            <VardiyaDefteri />
+          </View>
+        </View>
+      ) : (
+        <>
+          <View style={styles.paneTabs}>
+            {(['stok', 'vardiya'] as const).map((p) => {
+              const active = pane === p;
+              return (
+                <Pressable
+                  key={p}
+                  onPress={() => {
+                    feedback.press();
+                    setPane(p);
+                  }}
+                  style={[styles.paneTab, active && styles.paneTabActive]}
+                >
+                  <Text style={[styles.paneTabText, active && styles.paneTabTextActive]}>
+                    {p === 'stok' ? 'Stok' : 'Vardiyalar'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {/* İkisi de bağlı kalır: geri dönünce seçilen gün ve filtre kaybolmasın. */}
+          <View style={[styles.pane, pane !== 'stok' && styles.hidden]}>{stockPane}</View>
+          <View style={[styles.pane, pane !== 'vardiya' && styles.hidden]}>
+            <VardiyaDefteri />
+          </View>
+        </>
+      )}
     </Screen>
   );
 }
@@ -110,10 +146,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 12,
+    paddingBottom: 8,
+    gap: 12,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '800',
     color: colors.text,
   },
@@ -122,45 +159,58 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
   },
-  list: {
-    paddingHorizontal: 16,
-    paddingBottom: 90,
-    gap: 8,
-  },
-  row: {
+  columns: {
+    flex: 1,
     flexDirection: 'row',
+  },
+  left: {
+    flex: 1.2,
+  },
+  right: {
+    flex: 1,
+    maxWidth: 560,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
+  },
+  rightTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.text,
+    paddingHorizontal: 12,
+    paddingTop: 4,
+  },
+  pane: {
+    flex: 1,
+  },
+  hidden: {
+    display: 'none',
+  },
+  paneTabs: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  paneTab: {
+    flex: 1,
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 14,
-    gap: 12,
+    backgroundColor: colors.card,
   },
-  rowName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
+  paneTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  rowPrice: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  rowStockLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  rowStock: {
-    fontSize: 16,
+  paneTabText: {
+    fontSize: 14,
     fontWeight: '700',
-    color: colors.text,
-  },
-  rowDepot: {
-    fontSize: 12,
     color: colors.textMuted,
+  },
+  paneTabTextActive: {
+    color: colors.card,
   },
   fabWrap: {
     position: 'absolute',

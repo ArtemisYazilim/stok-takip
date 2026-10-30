@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Button, Card, EmptyState, Screen, colors } from '@/components/ui';
+import { ZamanFiltresi, zamanAraligi, type ZamanSecimi } from '@/components/zaman-filtresi';
 import { confirmAction, showAlert } from '@/lib/alerts';
 import { feedback } from '@/lib/feedback';
 import { formatDateTime, formatDuration, formatTime } from '@/lib/format';
@@ -17,22 +18,32 @@ export default function ShiftsScreen() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [summaries, setSummaries] = useState<Record<string, CountSummary>>({});
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [openProfileIds, setOpenProfileIds] = useState<Set<string>>(new Set());
+  const [zaman, setZaman] = useState<ZamanSecimi>({ tur: 'tumu' });
   const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const [shiftRes, profileRes] = await Promise.all([
-      supabase
-        .from('shifts')
-        .select('*, profiles(full_name)')
-        .order('started_at', { ascending: false })
-        .limit(60),
+    const { from, to } = zamanAraligi(zaman);
+    let shiftQuery = supabase
+      .from('shifts')
+      .select('*, profiles(full_name)')
+      .order('started_at', { ascending: false })
+      .limit(100);
+    if (from) shiftQuery = shiftQuery.gte('started_at', from.toISOString());
+    if (to) shiftQuery = shiftQuery.lt('started_at', to.toISOString());
+    // Açık vardiyalar filtreden bağımsız çekilir: "Vardiya Aç" listesi,
+    // filtrede görünmeyen açık vardiyası olan kişiye ikinci vardiya önermesin.
+    const [shiftRes, profileRes, openRes] = await Promise.all([
+      shiftQuery,
       supabase.from('profiles').select('*').eq('active', true).order('full_name'),
+      supabase.from('shifts').select('profile_id').is('ended_at', null),
     ]);
     const list = (shiftRes.data as Shift[]) ?? [];
     setShifts(list);
     setProfiles((profileRes.data as Profile[]) ?? []);
+    setOpenProfileIds(new Set(((openRes.data as { profile_id: string }[]) ?? []).map((s) => s.profile_id)));
 
     // Listelenen vardiyaların sayımlarını tek sorguda çekip fark özetini çıkar.
     const ids = list.map((s) => s.id);
@@ -52,7 +63,7 @@ export default function ShiftsScreen() {
       map[c.shift_id] = s;
     }
     setSummaries(map);
-  }, []);
+  }, [zaman]);
 
   useFocusEffect(
     useCallback(() => {
@@ -110,8 +121,6 @@ export default function ShiftsScreen() {
     await load();
   }
 
-  const openProfileIds = new Set(shifts.filter((s) => !s.ended_at).map((s) => s.profile_id));
-
   return (
     <Screen>
       <View style={styles.header}>
@@ -160,13 +169,18 @@ export default function ShiftsScreen() {
           )}
         </Card>
       ) : null}
+      <View style={styles.filter}>
+        <ZamanFiltresi value={zaman} onChange={setZaman} />
+      </View>
       <FlatList
         data={shifts}
         keyExtractor={(s) => s.id}
         contentContainerStyle={styles.list}
         refreshing={refreshing}
         onRefresh={onRefresh}
-        ListEmptyComponent={<EmptyState text="Henüz vardiya kaydı yok." />}
+        ListEmptyComponent={
+          <EmptyState text={zaman.tur === 'tumu' ? 'Henüz vardiya kaydı yok.' : 'Bu zamanda vardiya yok.'} />
+        }
         renderItem={({ item }) => (
           <Pressable
             style={styles.row}
@@ -204,6 +218,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
+  },
+  filter: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
   },
   picker: {
     marginHorizontal: 16,
