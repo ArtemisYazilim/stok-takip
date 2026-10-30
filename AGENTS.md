@@ -12,8 +12,8 @@ Expo **SDK 57** kullanılır (React Native 0.86, React 19). Bu sürüm eğitim v
 
 İki kullanıcı rolü vardır (`src/lib/types.ts`):
 
-- **admin**: Ürün CRUD + fotoğraf, Excel'den toplu ürün aktarımı, depoya/rafa alım, depodan rafa çıkış, raf/depo düzeltme, iade girişi, çalışan hesabı açma/silme, çalışana vardiya açma izni verme, herkes adına vardiya açma/kapatma, hareket geçmişi (birleşik filtreli akış), vardiya raporları ve canlı bildirimleri görür.
-- **calisan**: Kullanıcı adıyla giriş yapar, takvimden nöbet gününü seçer ve nöbeti (vardiya) başlatır (profilde `can_open_shift` izni varsa; yoksa admin onun için açar). Nöbet, kağıt çizelgenin dijitalidir: 1. sayfa yağ satış listesi (ÇKN = depodan çıkış, satış ve iade; stok otomatik güncellenir), 2. sayfa pompa sayaçları. Ayrıca ortak not defterine tarihli not düşer, vardiya sonunda raf sayımı yapıp devreder. Sayım farkı admin paneline düşer.
+- **admin**: Stok ekranı kağıt gibi iki sayfadır (üstte 1. Sayfa / 2. Sayfa seçimi; 2. sayfa o anki nöbetin pompa sayaçları + değişiklik geçmişi). 1. sayfa geniş ekranda iki sütundur: solda kağıt düzeninde stok tablosu (DEPO dahil), sağda seçilen günün/aralığın vardiyaları alt alta (kim, hangi yağdan kaç adet, ÇKN) ve ürün bazında satış özeti; dar ekranda Stok/Vardiyalar seçimiyle. Vardiyalar paneli kapatılabilir; tercih `AsyncStorage`'da kalır. Ürün CRUD (fotoğraf yok), Excel'den toplu ürün aktarımı, depoya/rafa alım, depodan rafa çıkış, raf/depo düzeltme, iade girişi, çalışan hesabı açma/silme, çalışana vardiya açma izni verme, herkes adına vardiya açma/kapatma, hareket geçmişi (birleşik filtreli akış), vardiya raporları ve canlı bildirimleri görür.
+- **calisan**: Kullanıcı adıyla giriş yapar, takvimden nöbet gününü seçer ve nöbeti (vardiya) başlatır (profilde `can_open_shift` izni varsa; yoksa admin onun için açar). Nöbet, kağıt çizelgenin dijitalidir: 1. sayfa yağ satış listesi (ÇKN = depodan çıkış, satış ve iade; stok otomatik güncellenir), 2. sayfa pompa sayaçları. Stok sekmesi kağıttaki yağ listesi gibi tek satırlık tablodur (açık nöbetine göre ÇKN/DVR/SATIŞ/BAK); ürüne dokununca satış, ÇKN veya iade yapar. Ayrıca ortak not defterine tarihli not düşer, vardiya sonunda raf sayımı yapıp devreder. Sayım farkı admin paneline düşer.
 
 ## Teknoloji yığını
 
@@ -59,12 +59,21 @@ src/
     index.tsx           # Role göre yönlendirme (admin → (admin)/stok, calisan → (calisan)/nobet)
     login.tsx           # Kullanıcı adı/e-posta + şifre girişi
     (admin)/            # Admin sekmeleri: stok, hareketler, vardiyalar, bildirimler, calisanlar, notlar
-                        # + href:null detay ekranları: urun, vardiya-detay, calisan-detay, aktar (Excel'den ürün aktarımı)
+                        # + href:null detay ekranları: urun, vardiya-detay, calisan-detay, aktar (Excel'den ürün aktarımı),
+                        #   pompa (bir nöbetin 2. sayfası + değişiklik geçmişi)
     (calisan)/          # Çalışan sekmeleri: nobet (takvimden nöbet günü), vardiya, stok, hareketler (kendi hareketleri), notlar
                         # + cizelge (href:null, tab bar gizli): altta "1. Sayfa / 2. Sayfa" seçimli nöbet çizelgesi
   components/ui.tsx     # Tek dosyalık UI kiti: colors, Screen, Card, Button, Input,
-                        # Badge, EmptyState, SectionTitle, ProductThumb
-  components/cizelge/   # Çizelge sayfaları: yag-satis-sayfasi (1. sayfa), pompa-sayfasi (2. sayfa)
+                        # Badge, EmptyState, SectionTitle
+  components/cizelge/   # Çizelge sayfaları: yag-satis-sayfasi (1. sayfa), pompa-sayfasi (2. sayfa; geniş ekranda
+                        # sayaçlar solda, OTOMASYON/GÜN SONU/PMP sağda), pompa-gecmisi (admin: değişiklik geçmişi),
+                        # admin-pompa (admin gözüyle 2. sayfa: Düzenle + geçmiş; stok ekranı ve pompa rotası ortak)
+  components/stok-tablosu.tsx        # Stok ekranlarının kağıt düzenindeki tek satırlık tablosu
+                                     # (FİYAT/ÇKN/DVR/SATIŞ/BAK, admin'de ek DEPO; fotoğraf yok)
+  components/urun-islem-penceresi.tsx # Çalışan stok tablosunda ürüne dokununca: satış / ÇKN / iade
+  components/vardiya-defteri.tsx     # Admin stok ekranının sağı: zaman filtresi, satılan ürünler,
+                                     # nöbet başına kağıttaki pompacı blokları (ürüne dokun → o ürünü satan vardiyalar)
+  components/zaman-filtresi.tsx      # Gün ‹ › / Son 7 gün / Bu ay / Tümü filtresi (vardiya defteri, vardiyalar)
   hooks/                # use-open-shift (açık vardiya), use-unread-notifications (realtime rozet)
   lib/
     alerts.ts           # Web uyumlu uyarı/onay diyalogları (showAlert/confirmAction)
@@ -74,9 +83,12 @@ src/
                         # ve MOVEMENT_LABELS gibi Türkçe etiketler
     format.ts           # tr-TR para/adet/tarih/süre biçimleme + parseNumberInput ("12,5" → 12.5)
     feedback.ts         # Merkezi ses + titreşim geri bildirimi (feedback.sale/success/error/...)
-    storage.ts          # Ürün fotoğrafını Supabase Storage'a yükleme
+    storage.ts          # Ürün fotoğrafı kovası adı (fotoğraf kaldırıldı; sadece eski fotoğrafı silerken)
     pompa.ts            # 2. sayfanın hortum listesi (yakıt + H.KODU), ek alanları ve STATION_NAME
     excel-aktarim.ts    # Excel'den yapıştırılan tabloyu (TSV) çözer: başlık algılama, TR sayı biçimi, stok kaynağı
+    nobet-stok.ts       # Nöbetin yağ satış hesabı (OilRow: önceki/ÇKN/satış/BAK); çizelge ve stok ekranları ortak
+    vardiya-defteri.ts  # Zaman aralığındaki nöbetlerin satış/ÇKN dökümü ve ürün bazında satış özeti
+    cizelge-verisi.ts   # 2. sayfa okuma/kaydetme, önceki sayaçlar, değişiklik geçmişi (çalışan ve admin ortak)
   providers/
     auth-provider.tsx   # AuthProvider + useAuth (session, profile, signOut, refreshProfile)
 supabase/
@@ -91,6 +103,7 @@ supabase/
     20261028132804_depodan_cikis.sql         # 'cikis' hareket tipi (ÇKN), çalışan yazabilir
     20261028132805_urun_sirasi_ve_excel_aktarimi.sql # products.sort_order + admin_import_products RPC
     20261028182615_depo_stoku.sql            # products.depot_stock, stock_movements.depot_delta, 'depo_alim'
+    20261030113802_pompa_degisiklik_gecmisi.sql # shift_sheet_changes: 2. sayfada kim hangi hücreyi değiştirdi (tetikleyici)
 assets/                 # Görseller ve sesler (tap/success/sale/error .wav)
 .github/workflows/deploy.yml  # master'a push'ta web export + GitHub Pages dağıtımı
 ```
@@ -116,7 +129,7 @@ assets/                 # Görseller ve sesler (tap/success/sale/error .wav)
 - Toplu ürün aktarımı `admin_import_products(items jsonb)` RPC'siyle tek transaction'da yapılır; raf ve depo farkı ayrı `duzeltme` hareketleri (not: 'Excel aktarımı (raf/depo)') olarak yazılır, stok doğrudan güncellenmez. Excel'de `DEPO` sütunu varsa depo da aktarılır. Eşleştirme istemcide normalize adla (`normalizeKey`) yapılır.
 - `shifts`: bir çalışanın aynı anda tek açık vardiyası olabilir (kısmi unique index). Vardiya açma: admin herkes adına açabilir/kapatabilir (`vardiyalar.tsx`); çalışan ancak `profiles.can_open_shift` true ise kendi vardiyasını açar (RLS `shifts_insert` politikasında zorlanır).
 - `notes`: çalışanların ortak not defteri (kağıt defterin yerini alır). Herkes okur, herkes kendi adına yazar; silme = kendi notu veya admin. Çalışan `notlar.tsx` sekmesinden yazar/görür; admin hem `hareketler.tsx` akışında hem kendi `notlar.tsx` sekmesinde görür (admin not yazmaz, silebilir).
-- `shift_sheets`: nöbet çizelgesinin 2. sayfası, anahtar `shift_id`. Hortum listesi henüz kesinleşmediği için `meters`/`extras` jsonb'dir; alanlar `src/lib/pompa.ts` ve `ShiftSheet` tipinde. 1. sayfa ayrı tablo tutmaz: DVR/ADET/BAK nöbet penceresindeki `stock_movements`'tan hesaplanır; Sütunlar kağıttaki gibi: ÇKN (nöbet penceresindeki `cikis` + `alim`), DVR = nöbet başı stok + ÇKN, SATIŞ (bu nöbetin net satışı), BAK = raftaki stok (ertesi nöbetin başlangıcı). SATIŞ hücresi artarsa `satis`, azalırsa `iade`; ÇKN hücresi sadece artar (`cikis`, depodaki miktarla sınırlı), azaltma admin düzeltmesiyle yapılır. Herkes okur (sonraki nöbetçi önceki sayaç okumasını görür), yazma = vardiya sahibi veya admin.
+- `shift_sheets`: nöbet çizelgesinin 2. sayfası, anahtar `shift_id`. Hortum listesi henüz kesinleşmediği için `meters`/`extras` jsonb'dir; alanlar `src/lib/pompa.ts` ve `ShiftSheet` tipinde. 1. sayfa ayrı tablo tutmaz: DVR/ADET/BAK nöbet penceresindeki `stock_movements`'tan hesaplanır; Sütunlar kağıttaki gibi: ÇKN (nöbet penceresindeki `cikis` + `alim`), DVR = nöbet başı stok + ÇKN, SATIŞ (bu nöbetin net satışı), BAK = raftaki stok (ertesi nöbetin başlangıcı). SATIŞ hücresi artarsa `satis`, azalırsa `iade`; ÇKN hücresi sadece artar (`cikis`, depodaki miktarla sınırlı), azaltma admin düzeltmesiyle yapılır. Herkes okur (sonraki nöbetçi önceki sayaç okumasını görür), yazma = vardiya sahibi veya admin. Her kayıtta `log_shift_sheet_change()` tetikleyicisi eski/yeni belgeyi hücre hücre karşılaştırıp (`jsonb_leaves`) değişen her hücreyi `shift_sheet_changes`'e yazar (kişi `auth.uid()`); admin bunu `(admin)/pompa` ekranında görür.
 - `hareketler.tsx` (admin) tek birleşik akıştır: hareket + not + bildirim; filtre yokken vardiya bazlı gruplanır (açık vardiya üstte), filtre (tür/kişi/zaman/arama) varken düz liste olur.
 - Vardiya kapatılınca (UPDATE ile `ended_at` dolunca) `notify_shift_closed()` tetikleyicisi admin `notifications` tablosuna kayıt atar; sayım farkları `shift_counts` ile `counted_qty <> expected_qty` karşılaştırmasından üretilir.
 - Şema değişikliği gerektiğinde: `npm run db:new -- <ad>` ile `supabase/migrations/` altına yeni geçiş açılır; uygulanmış geçiş dosyası **asla düzenlenmez**, düzeltme de yeni geçiştir. SQL Editor'de elle çalıştırma yapılmaz: `npm run db:push` ya da `master`a push'ta `deploy.yml`'deki `migrate` işi (secret: `SUPABASE_DB_URL`, session pooler adresi) uygular; web yayını geçişten sonra başlar. Geçişler yine **idempotent** yazılır (`if not exists` / `drop ... if exists`). Tam şemanın tek dosyalık dökümü gerekirse `npx supabase db dump --linked -f schema.sql` (repoya eklenmez).
@@ -125,7 +138,7 @@ assets/                 # Görseller ve sesler (tap/success/sale/error .wav)
 ## Güvenlik
 
 - Tüm tablolarda **RLS açıktır**. Yetki kontrolü `public.is_admin()` (security definer) fonksiyonuyla yapılır. Özet: ürün yazma = sadece admin; hareket yazma = kendi adına + `satis`/`iade`/`cikis` herkes / `alim`/`depo_alim`/`duzeltme` sadece admin; bildirim okuma/okundu = sadece admin; not okuma/yazma = herkes (kendi adına), not silme = kendi notu veya admin.
-- `notifications` tablosunda **INSERT politikası bilinçli olarak yoktur**; kayıtları yalnızca security definer tetikleyici yazar. Yeni politika eklerken bunu bozmayın.
+- `notifications` ve `shift_sheet_changes` tablolarında **INSERT politikası bilinçli olarak yoktur**; kayıtları yalnızca security definer tetikleyici yazar. Yeni politika eklerken bunu bozmayın. `shift_sheet_changes`'i sadece admin okur.
 - `EXPO_PUBLIC_*` anon anahtarı herkese açıktır (Expo'nun doğası gereği); gerçek güvenlik RLS'tedir. Anahtar/URL `.env`'de tutulur, CI'da GitHub Secrets ile verilir.
 - Supabase Auth'ta **"Confirm email" kapalı olmalıdır** (çalışan hesapları sahte e-posta kullanır, onay maili gidemez).
 - `admin_delete_employee` RPC çalışanı kalıcı siler; kendi hesabını silmeyi engeller.
