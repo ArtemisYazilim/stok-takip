@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { AdminPompa } from '@/components/cizelge/admin-pompa';
@@ -17,6 +18,9 @@ import { useAuth } from '@/providers/auth-provider';
 /** Bu genişlikten itibaren kağıttaki gibi stok solda, vardiyalar sağda. */
 const WIDE = 900;
 
+/** Vardiyalar paneli kapatıldıysa ekran yeniden açılınca da kapalı kalsın. */
+const DEFTER_KEY = 'admin-stok:vardiyalar';
+
 export default function AdminStockScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
@@ -25,6 +29,7 @@ export default function AdminStockScreen() {
   const [pane, setPane] = useState<'stok' | 'vardiya'>('stok');
   // Kağıttaki gibi: 1. sayfa yağ satışı + vardiyalar, 2. sayfa o nöbetin pompa sayaçları.
   const [page, setPage] = useState<1 | 2>(1);
+  const [defterAcik, setDefterAcik] = useState(true);
   const [shift, setShift] = useState<Shift | null>(null);
   const [rows, setRows] = useState<OilRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,6 +53,21 @@ export default function AdminStockScreen() {
       load();
     }, [load]),
   );
+
+  useEffect(() => {
+    AsyncStorage.getItem(DEFTER_KEY)
+      .then((v) => {
+        if (v === 'kapali') setDefterAcik(false);
+      })
+      .catch(() => {});
+  }, []);
+
+  function setDefter(open: boolean) {
+    feedback.press();
+    setDefterAcik(open);
+    if (open) setPane('vardiya');
+    AsyncStorage.setItem(DEFTER_KEY, open ? 'acik' : 'kapali').catch(() => {});
+  }
 
   async function onRefresh() {
     setRefreshing(true);
@@ -99,6 +119,12 @@ export default function AdminStockScreen() {
             </Text>
           ) : null}
         </View>
+        {page === 1 && !defterAcik ? (
+          <Pressable onPress={() => setDefter(true)} style={styles.showDefter}>
+            <Ionicons name="time-outline" size={16} color={colors.primary} />
+            <Text style={styles.showDefterText}>Vardiyaları göster</Text>
+          </Pressable>
+        ) : null}
         <View style={styles.pageSwitch}>
           {([1, 2] as const).map((n) => {
             const active = page === n;
@@ -123,11 +149,19 @@ export default function AdminStockScreen() {
 
       {/* 1. sayfa bağlı kalır: 2. sayfadan dönünce seçilen gün ve filtre kaybolmasın. */}
       <View style={[styles.pane, page !== 1 && styles.hidden]}>
-        {wide ? (
+        {!defterAcik ? (
+          stockPane
+        ) : wide ? (
           <View style={styles.columns}>
             <View style={styles.left}>{stockPane}</View>
             <View style={styles.right}>
-              <Text style={styles.rightTitle}>Vardiyalar</Text>
+              <View style={styles.rightHead}>
+                <Text style={styles.rightTitle}>Vardiyalar</Text>
+                <Pressable onPress={() => setDefter(false)} hitSlop={8} style={styles.closeDefter}>
+                  <Text style={styles.closeDefterText}>Kapat</Text>
+                  <Ionicons name="close" size={16} color={colors.textMuted} />
+                </Pressable>
+              </View>
               <VardiyaDefteri />
             </View>
           </View>
@@ -151,6 +185,9 @@ export default function AdminStockScreen() {
                   </Pressable>
                 );
               })}
+              <Pressable onPress={() => setDefter(false)} hitSlop={8} style={styles.closeDefterNarrow}>
+                <Ionicons name="close" size={18} color={colors.textMuted} />
+              </Pressable>
             </View>
             {/* İkisi de bağlı kalır: geri dönünce seçilen gün ve filtre kaybolmasın. */}
             <View style={[styles.pane, pane !== 'stok' && styles.hidden]}>{stockPane}</View>
@@ -205,12 +242,56 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: colors.border,
   },
+  rightHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingTop: 4,
+  },
   rightTitle: {
     fontSize: 15,
     fontWeight: '800',
     color: colors.text,
-    paddingHorizontal: 12,
-    paddingTop: 4,
+  },
+  closeDefter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  closeDefterText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  closeDefterNarrow: {
+    width: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  showDefter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+  },
+  showDefterText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   pane: {
     flex: 1,
