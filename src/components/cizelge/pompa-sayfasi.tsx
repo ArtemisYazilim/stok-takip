@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { Button, colors } from '@/components/ui';
 import { showAlert } from '@/lib/alerts';
@@ -26,6 +26,8 @@ interface Props {
   /** gun_cizelgesi geçişi henüz uygulanmadıysa kayıt yapılamaz. */
   tableMissing: boolean;
   onSave: (meters: Record<string, MeterReading>, extras: ShiftSheetExtras) => Promise<boolean>;
+  /** Sayfanın altında gösterilir (admin: değişiklik geçmişi). */
+  footer?: ReactNode;
 }
 
 type MeterDraft = Record<string, { m: string; e: string }>;
@@ -42,7 +44,20 @@ function parseOptional(text: string): number | null | undefined {
 
 const SERBEST_MIN_ROWS = 3;
 
-export function PompaSayfasi({ sheet, prevMeters, oilRevenue, editable, tableMissing, onSave }: Props) {
+/** Bu genişlikten itibaren kağıttaki gibi sayaçlar solda, diğer alanlar sağda. */
+const WIDE = 900;
+
+export function PompaSayfasi({
+  sheet,
+  prevMeters,
+  oilRevenue,
+  editable,
+  tableMissing,
+  onSave,
+  footer,
+}: Props) {
+  const { width } = useWindowDimensions();
+  const wide = width >= WIDE;
   // Taslaklar kayıtlı çizelgeden bir kez kurulur; ekran kayıttan sonra
   // `key` değişimiyle yeniden kurulduğu için effect ile senkron gerekmez.
   const [meters, setMeters] = useState<MeterDraft>(() =>
@@ -134,9 +149,167 @@ export function PompaSayfasi({ sheet, prevMeters, oilRevenue, editable, tableMis
     col.reduce((sum, v) => sum + (parseOptional(v) ?? 0), 0),
   );
 
+  const meterSection = (
+    <>
+      <View style={styles.table}>
+        <View style={styles.headRow}>
+          <Text style={[styles.headCell, styles.colFuel, { textAlign: 'left' }]}>YAKIT</Text>
+          <Text style={[styles.headCell, styles.colCode]}>H.KODU</Text>
+          <Text style={[styles.headCell, styles.colMeter]}>M.SAYAÇ</Text>
+          <Text style={[styles.headCell, styles.colMeter]}>E.SAYAÇ</Text>
+        </View>
+        {HOSES.map((h, i) => {
+          const d = meters[h.kod];
+          const prev = prevMeters[h.kod];
+          return (
+            <View key={h.kod} style={[styles.row, i % 2 === 1 && styles.rowAlt]}>
+              <Text style={[styles.fuel, styles.colFuel, { color: FUEL_COLORS[h.tur] }]}>
+                {h.yakit}
+              </Text>
+              <Text style={[styles.code, styles.colCode]}>{h.kod}</Text>
+              {(['m', 'e'] as const).map((field) => {
+                const cur = parseOptional(d[field]);
+                const before = prev?.[field] ?? null;
+                const diff = typeof cur === 'number' && before !== null ? cur - before : null;
+                return (
+                  <View key={field} style={styles.colMeter}>
+                    <TextInput
+                      value={d[field]}
+                      onChangeText={(t) => setMeter(h.kod, field, t)}
+                      editable={canEdit}
+                      keyboardType="decimal-pad"
+                      placeholder={before !== null ? formatQty(before) : ''}
+                      placeholderTextColor={colors.border}
+                      style={[styles.input, cur === undefined && styles.inputInvalid]}
+                    />
+                    {diff !== null ? (
+                      <Text style={[styles.diff, diff < 0 && { color: colors.danger }]}>
+                        {diff >= 0 ? '+' : ''}
+                        {formatQty(diff)}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })}
+        <View style={[styles.row, styles.oilRow]}>
+          <Text style={[styles.fuel, styles.colFuel]}>YAĞ SATIŞI</Text>
+          <Text style={[styles.oilHint, styles.colCode]}>1. sayfa</Text>
+          <Text style={styles.oilValue}>{formatMoney(oilRevenue)}</Text>
+        </View>
+      </View>
+      <Text style={styles.hint}>
+        Gri yazı bir önceki nöbetin okumasıdır; girdiğin değerin altında aradaki fark görünür.
+      </Text>
+    </>
+  );
+
+  const sideSection = (
+    <>
+      <View style={styles.table}>
+        {SUMMARY_FIELDS.map((f, i) => (
+          <View key={f.key} style={[styles.row, i % 2 === 1 && styles.rowAlt]}>
+            <Text style={[styles.fuel, { flex: 1 }]}>{f.label}</Text>
+            <TextInput
+              value={summary[f.key]}
+              onChangeText={(t) => {
+                setDirty(true);
+                setSummary((prev) => ({ ...prev, [f.key]: t }));
+              }}
+              editable={canEdit}
+              keyboardType="decimal-pad"
+              style={[
+                styles.input,
+                styles.summaryInput,
+                parseOptional(summary[f.key]) === undefined && styles.inputInvalid,
+              ]}
+            />
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.table}>
+        <View style={styles.headRow}>
+          {pmp.map((_, c) => (
+            <Text key={c} style={[styles.headCell, { flex: 1 }]}>
+              PMP{c + 1}
+            </Text>
+          ))}
+        </View>
+        {Array.from({ length: PMP_ROWS }, (_, r) => (
+          <View key={r} style={[styles.row, r % 2 === 1 && styles.rowAlt]}>
+            {pmp.map((col, c) => (
+              <TextInput
+                key={c}
+                value={col[r]}
+                onChangeText={(t) => setPmpCell(c, r, t)}
+                editable={canEdit}
+                keyboardType="decimal-pad"
+                style={[
+                  styles.input,
+                  { flex: 1 },
+                  parseOptional(col[r]) === undefined && styles.inputInvalid,
+                ]}
+              />
+            ))}
+          </View>
+        ))}
+        <View style={[styles.row, styles.oilRow]}>
+          {pmpTotals.map((t, c) => (
+            <Text key={c} style={[styles.pmpTotal, { flex: 1 }]}>
+              {t !== 0 ? formatQty(t) : '–'}
+            </Text>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.table}>
+        <View style={styles.headRow}>
+          <Text style={[styles.headCell, { flex: 2, textAlign: 'left' }]}>AÇIKLAMA</Text>
+          <Text style={[styles.headCell, { flex: 1 }]}>TUTAR</Text>
+        </View>
+        {serbest.map((s, i) => (
+          <View key={i} style={[styles.row, i % 2 === 1 && styles.rowAlt]}>
+            <TextInput
+              value={s.aciklama}
+              onChangeText={(t) => setSerbestCell(i, 'aciklama', t)}
+              editable={canEdit}
+              style={[styles.input, { flex: 2, textAlign: 'left' }]}
+            />
+            <TextInput
+              value={s.tutar}
+              onChangeText={(t) => setSerbestCell(i, 'tutar', t)}
+              editable={canEdit}
+              keyboardType="decimal-pad"
+              style={[
+                styles.input,
+                { flex: 1 },
+                parseOptional(s.tutar) === undefined && styles.inputInvalid,
+              ]}
+            />
+          </View>
+        ))}
+        {canEdit ? (
+          <Pressable
+            style={styles.addRow}
+            onPress={() => {
+              feedback.press();
+              setSerbest((prev) => [...prev, { aciklama: '', tutar: '' }]);
+            }}
+          >
+            <Ionicons name="add" size={16} color={colors.primary} />
+            <Text style={styles.addRowText}>Satır ekle</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </>
+  );
+
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.wrap, wide && styles.wrapWide]} keyboardShouldPersistTaps="handled">
         {tableMissing ? (
           <View style={styles.warn}>
             <Ionicons name="warning-outline" size={18} color={colors.warning} />
@@ -147,155 +320,18 @@ export function PompaSayfasi({ sheet, prevMeters, oilRevenue, editable, tableMis
           </View>
         ) : null}
 
-        <View style={styles.table}>
-          <View style={styles.headRow}>
-            <Text style={[styles.headCell, styles.colFuel, { textAlign: 'left' }]}>YAKIT</Text>
-            <Text style={[styles.headCell, styles.colCode]}>H.KODU</Text>
-            <Text style={[styles.headCell, styles.colMeter]}>M.SAYAÇ</Text>
-            <Text style={[styles.headCell, styles.colMeter]}>E.SAYAÇ</Text>
+        {wide ? (
+          <View style={styles.columns}>
+            <View style={styles.mainCol}>{meterSection}</View>
+            <View style={styles.sideCol}>{sideSection}</View>
           </View>
-          {HOSES.map((h, i) => {
-            const d = meters[h.kod];
-            const prev = prevMeters[h.kod];
-            return (
-              <View key={h.kod} style={[styles.row, i % 2 === 1 && styles.rowAlt]}>
-                <Text style={[styles.fuel, styles.colFuel, { color: FUEL_COLORS[h.tur] }]}>
-                  {h.yakit}
-                </Text>
-                <Text style={[styles.code, styles.colCode]}>{h.kod}</Text>
-                {(['m', 'e'] as const).map((field) => {
-                  const cur = parseOptional(d[field]);
-                  const before = prev?.[field] ?? null;
-                  const diff = typeof cur === 'number' && before !== null ? cur - before : null;
-                  return (
-                    <View key={field} style={styles.colMeter}>
-                      <TextInput
-                        value={d[field]}
-                        onChangeText={(t) => setMeter(h.kod, field, t)}
-                        editable={canEdit}
-                        keyboardType="decimal-pad"
-                        placeholder={before !== null ? formatQty(before) : ''}
-                        placeholderTextColor={colors.border}
-                        style={[styles.input, cur === undefined && styles.inputInvalid]}
-                      />
-                      {diff !== null ? (
-                        <Text style={[styles.diff, diff < 0 && { color: colors.danger }]}>
-                          {diff >= 0 ? '+' : ''}
-                          {formatQty(diff)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  );
-                })}
-              </View>
-            );
-          })}
-          <View style={[styles.row, styles.oilRow]}>
-            <Text style={[styles.fuel, styles.colFuel]}>YAĞ SATIŞI</Text>
-            <Text style={[styles.oilHint, styles.colCode]}>1. sayfa</Text>
-            <Text style={styles.oilValue}>{formatMoney(oilRevenue)}</Text>
-          </View>
-        </View>
-        <Text style={styles.hint}>
-          Gri yazı bir önceki nöbetin okumasıdır; girdiğin değerin altında aradaki fark görünür.
-        </Text>
-
-        <View style={styles.table}>
-          {SUMMARY_FIELDS.map((f, i) => (
-            <View key={f.key} style={[styles.row, i % 2 === 1 && styles.rowAlt]}>
-              <Text style={[styles.fuel, { flex: 1 }]}>{f.label}</Text>
-              <TextInput
-                value={summary[f.key]}
-                onChangeText={(t) => {
-                  setDirty(true);
-                  setSummary((prev) => ({ ...prev, [f.key]: t }));
-                }}
-                editable={canEdit}
-                keyboardType="decimal-pad"
-                style={[
-                  styles.input,
-                  styles.summaryInput,
-                  parseOptional(summary[f.key]) === undefined && styles.inputInvalid,
-                ]}
-              />
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.table}>
-          <View style={styles.headRow}>
-            {pmp.map((_, c) => (
-              <Text key={c} style={[styles.headCell, { flex: 1 }]}>
-                PMP{c + 1}
-              </Text>
-            ))}
-          </View>
-          {Array.from({ length: PMP_ROWS }, (_, r) => (
-            <View key={r} style={[styles.row, r % 2 === 1 && styles.rowAlt]}>
-              {pmp.map((col, c) => (
-                <TextInput
-                  key={c}
-                  value={col[r]}
-                  onChangeText={(t) => setPmpCell(c, r, t)}
-                  editable={canEdit}
-                  keyboardType="decimal-pad"
-                  style={[
-                    styles.input,
-                    { flex: 1 },
-                    parseOptional(col[r]) === undefined && styles.inputInvalid,
-                  ]}
-                />
-              ))}
-            </View>
-          ))}
-          <View style={[styles.row, styles.oilRow]}>
-            {pmpTotals.map((t, c) => (
-              <Text key={c} style={[styles.pmpTotal, { flex: 1 }]}>
-                {t !== 0 ? formatQty(t) : '–'}
-              </Text>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.table}>
-          <View style={styles.headRow}>
-            <Text style={[styles.headCell, { flex: 2, textAlign: 'left' }]}>AÇIKLAMA</Text>
-            <Text style={[styles.headCell, { flex: 1 }]}>TUTAR</Text>
-          </View>
-          {serbest.map((s, i) => (
-            <View key={i} style={[styles.row, i % 2 === 1 && styles.rowAlt]}>
-              <TextInput
-                value={s.aciklama}
-                onChangeText={(t) => setSerbestCell(i, 'aciklama', t)}
-                editable={canEdit}
-                style={[styles.input, { flex: 2, textAlign: 'left' }]}
-              />
-              <TextInput
-                value={s.tutar}
-                onChangeText={(t) => setSerbestCell(i, 'tutar', t)}
-                editable={canEdit}
-                keyboardType="decimal-pad"
-                style={[
-                  styles.input,
-                  { flex: 1 },
-                  parseOptional(s.tutar) === undefined && styles.inputInvalid,
-                ]}
-              />
-            </View>
-          ))}
-          {canEdit ? (
-            <Pressable
-              style={styles.addRow}
-              onPress={() => {
-                feedback.press();
-                setSerbest((prev) => [...prev, { aciklama: '', tutar: '' }]);
-              }}
-            >
-              <Ionicons name="add" size={16} color={colors.primary} />
-              <Text style={styles.addRowText}>Satır ekle</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        ) : (
+          <>
+            {meterSection}
+            {sideSection}
+          </>
+        )}
+        {footer}
       </ScrollView>
 
       {canEdit ? (
@@ -322,6 +358,24 @@ const styles = StyleSheet.create({
     maxWidth: 760,
     width: '100%',
     alignSelf: 'center',
+  },
+  wrapWide: {
+    maxWidth: 1200,
+  },
+  columns: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  mainCol: {
+    flex: 1.3,
+    minWidth: 0,
+    gap: 12,
+  },
+  sideCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 12,
   },
   warn: {
     flexDirection: 'row',
