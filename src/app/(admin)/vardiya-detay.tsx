@@ -73,6 +73,15 @@ export default function ShiftDetailScreen() {
           </Card>
         ) : null}
 
+        {shift ? (
+          <Button
+            title="Pompa Sayaçları (2. sayfa)"
+            icon="speedometer-outline"
+            variant="ghost"
+            onPress={() => router.push({ pathname: '/(admin)/pompa', params: { id: shift.id } })}
+          />
+        ) : null}
+
         <Card style={{ gap: 10 }}>
           <SectionTitle text={`Satışlar · ${formatMoney(totalRevenue)}`} />
           {sales.length === 0 ? (

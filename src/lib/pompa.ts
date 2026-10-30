@@ -58,5 +58,21 @@ export type SummaryKey = (typeof SUMMARY_FIELDS)[number]['key'];
 export const PMP_COUNT = 5;
 export const PMP_ROWS = 3;
 
+/** shift_sheet_changes.field yolunun kağıttaki adı ("MOTORİN 100 101 M.SAYAÇ"). */
+export function sheetFieldLabel(path: string): string {
+  const [root, a, b, c] = path.split('.');
+  if (root === 'meters') {
+    const hose = HOSES.find((h) => h.kod === a);
+    return `${hose?.yakit ?? 'Hortum'} ${a} ${b === 'e' ? 'E.SAYAÇ' : 'M.SAYAÇ'}`;
+  }
+  if (root === 'extras') {
+    if (a === 'pmp') return `PMP${Number(b) + 1} · ${Number(c) + 1}. satır`;
+    if (a === 'serbest') return `${Number(b) + 1}. satır ${c === 'tutar' ? 'tutarı' : 'açıklaması'}`;
+    const field = SUMMARY_FIELDS.find((f) => f.key === a);
+    if (field) return field.label;
+  }
+  return path;
+}
+
 /** Çizelge başlığında kağıttaki gibi görünen istasyon adı. */
 export const STATION_NAME = 'GÜLCE';

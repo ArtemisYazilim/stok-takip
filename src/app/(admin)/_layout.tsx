@@ -76,6 +76,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="vardiya-detay" options={{ href: null }} />
       <Tabs.Screen name="calisan-detay" options={{ href: null }} />
       <Tabs.Screen name="aktar" options={{ href: null }} />
+      <Tabs.Screen name="pompa" options={{ href: null }} />
     </Tabs>
   );
 }

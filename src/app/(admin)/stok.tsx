@@ -3,8 +3,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { AdminPompa } from '@/components/cizelge/admin-pompa';
 import { StokTablosu } from '@/components/stok-tablosu';
-import { Button, Screen, colors } from '@/components/ui';
+import { Button, EmptyState, Screen, colors } from '@/components/ui';
 import { VardiyaDefteri } from '@/components/vardiya-defteri';
 import { feedback } from '@/lib/feedback';
 import { formatDateKey, formatMoney, toDateKey } from '@/lib/format';
@@ -22,6 +23,8 @@ export default function AdminStockScreen() {
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
   const [pane, setPane] = useState<'stok' | 'vardiya'>('stok');
+  // Kağıttaki gibi: 1. sayfa yağ satışı + vardiyalar, 2. sayfa o nöbetin pompa sayaçları.
+  const [page, setPage] = useState<1 | 2>(1);
   const [shift, setShift] = useState<Shift | null>(null);
   const [rows, setRows] = useState<OilRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,55 +89,85 @@ export default function AdminStockScreen() {
     <Screen>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Stok</Text>
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {rows.length} ürün · toplam değer {formatMoney(totalValue)} ·{' '}
-            {shift
-              ? `nöbette: ${shift.profiles?.full_name || '—'} (${formatDateKey(toDateKey(shift.started_at))})`
-              : 'açık nöbet yok'}
-          </Text>
+          <Text style={styles.title}>{page === 1 ? 'Stok' : 'Pompa Sayaçları'}</Text>
+          {page === 1 ? (
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {rows.length} ürün · toplam değer {formatMoney(totalValue)} ·{' '}
+              {shift
+                ? `nöbette: ${shift.profiles?.full_name || '—'} (${formatDateKey(toDateKey(shift.started_at))})`
+                : 'açık nöbet yok'}
+            </Text>
+          ) : null}
+        </View>
+        <View style={styles.pageSwitch}>
+          {([1, 2] as const).map((n) => {
+            const active = page === n;
+            return (
+              <Pressable
+                key={n}
+                onPress={() => {
+                  feedback.press();
+                  setPage(n);
+                }}
+                style={[styles.pageTab, active && styles.pageTabActive]}
+              >
+                <Text style={[styles.pageTabText, active && styles.pageTabTextActive]}>{n}. Sayfa</Text>
+              </Pressable>
+            );
+          })}
         </View>
         <Pressable onPress={signOut} hitSlop={8}>
           <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
         </Pressable>
       </View>
 
-      {wide ? (
-        <View style={styles.columns}>
-          <View style={styles.left}>{stockPane}</View>
-          <View style={styles.right}>
-            <Text style={styles.rightTitle}>Vardiyalar</Text>
-            <VardiyaDefteri />
+      {/* 1. sayfa bağlı kalır: 2. sayfadan dönünce seçilen gün ve filtre kaybolmasın. */}
+      <View style={[styles.pane, page !== 1 && styles.hidden]}>
+        {wide ? (
+          <View style={styles.columns}>
+            <View style={styles.left}>{stockPane}</View>
+            <View style={styles.right}>
+              <Text style={styles.rightTitle}>Vardiyalar</Text>
+              <VardiyaDefteri />
+            </View>
           </View>
-        </View>
-      ) : (
-        <>
-          <View style={styles.paneTabs}>
-            {(['stok', 'vardiya'] as const).map((p) => {
-              const active = pane === p;
-              return (
-                <Pressable
-                  key={p}
-                  onPress={() => {
-                    feedback.press();
-                    setPane(p);
-                  }}
-                  style={[styles.paneTab, active && styles.paneTabActive]}
-                >
-                  <Text style={[styles.paneTabText, active && styles.paneTabTextActive]}>
-                    {p === 'stok' ? 'Stok' : 'Vardiyalar'}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          {/* İkisi de bağlı kalır: geri dönünce seçilen gün ve filtre kaybolmasın. */}
-          <View style={[styles.pane, pane !== 'stok' && styles.hidden]}>{stockPane}</View>
-          <View style={[styles.pane, pane !== 'vardiya' && styles.hidden]}>
-            <VardiyaDefteri />
-          </View>
-        </>
-      )}
+        ) : (
+          <>
+            <View style={styles.paneTabs}>
+              {(['stok', 'vardiya'] as const).map((p) => {
+                const active = pane === p;
+                return (
+                  <Pressable
+                    key={p}
+                    onPress={() => {
+                      feedback.press();
+                      setPane(p);
+                    }}
+                    style={[styles.paneTab, active && styles.paneTabActive]}
+                  >
+                    <Text style={[styles.paneTabText, active && styles.paneTabTextActive]}>
+                      {p === 'stok' ? 'Stok' : 'Vardiyalar'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {/* İkisi de bağlı kalır: geri dönünce seçilen gün ve filtre kaybolmasın. */}
+            <View style={[styles.pane, pane !== 'stok' && styles.hidden]}>{stockPane}</View>
+            <View style={[styles.pane, pane !== 'vardiya' && styles.hidden]}>
+              <VardiyaDefteri />
+            </View>
+          </>
+        )}
+      </View>
+
+      {page === 2 ? (
+        shift ? (
+          <AdminPompa key={shift.id} shift={shift} />
+        ) : (
+          <EmptyState text="Şu an açık nöbet yok. Geçmiş nöbetlerin 2. sayfası 1. sayfadaki vardiya bloklarında “2. Sayfa” düğmesiyle açılır." />
+        )
+      ) : null}
     </Screen>
   );
 }
@@ -184,6 +217,30 @@ const styles = StyleSheet.create({
   },
   hidden: {
     display: 'none',
+  },
+  pageSwitch: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    padding: 2,
+  },
+  pageTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  pageTabActive: {
+    backgroundColor: colors.primary,
+  },
+  pageTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  pageTabTextActive: {
+    color: colors.card,
   },
   paneTabs: {
     flexDirection: 'row',

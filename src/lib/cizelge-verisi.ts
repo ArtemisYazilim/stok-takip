@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { MeterReading, ShiftSheet, ShiftSheetExtras } from '@/lib/types';
+import type { MeterReading, ShiftSheet, ShiftSheetChange, ShiftSheetExtras } from '@/lib/types';
 
 /** PostgREST "tablo yok" hataları: ilgili geçiş henüz uygulanmamış demektir. */
 export function isMissingTable(code?: string) {
@@ -59,4 +59,37 @@ export async function saveSheet(
     .single();
   if (error) return { sheet: null, error: error.message };
   return { sheet: data as ShiftSheet, error: null };
+}
+
+/** 2. sayfanın değişiklik geçmişi (sadece admin okuyabilir), en yeni başta. */
+export async function loadSheetChanges(
+  shiftId: string,
+): Promise<{ changes: ShiftSheetChange[]; missing: boolean }> {
+  const { data, error } = await supabase
+    .from('shift_sheet_changes')
+    .select('*, profiles(full_name)')
+    .eq('shift_id', shiftId)
+    .order('created_at', { ascending: false })
+    .order('id');
+  if (error && isMissingTable(error.code)) return { changes: [], missing: true };
+  return { changes: (data as ShiftSheetChange[]) ?? [], missing: false };
+}
+
+export interface ChangeGroup {
+  key: string;
+  who: string;
+  at: string;
+  changes: ShiftSheetChange[];
+}
+
+/** Aynı kayıttaki hücreler tek transaction'da yazılır, aynı created_at'i taşır. */
+export function groupChanges(changes: ShiftSheetChange[]): ChangeGroup[] {
+  const groups: ChangeGroup[] = [];
+  for (const c of changes) {
+    const key = `${c.created_at}|${c.changed_by ?? ''}`;
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.changes.push(c);
+    else groups.push({ key, who: c.profiles?.full_name || 'Bilinmeyen', at: c.created_at, changes: [c] });
+  }
+  return groups;
 }

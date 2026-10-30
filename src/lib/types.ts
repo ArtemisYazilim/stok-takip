@@ -121,6 +121,22 @@ export interface ShiftSheet {
   updated_at: string;
 }
 
+/**
+ * 2. sayfada bir hücrenin değişimi. Yalnızca shift_sheets tetikleyicisi
+ * yazar, sadece admin okur (bkz. migrations/*_pompa_degisiklik_gecmisi.sql).
+ */
+export interface ShiftSheetChange {
+  id: number;
+  shift_id: string;
+  changed_by: string | null;
+  /** Hücre yolu: 'meters.100 101.m', 'extras.otomasyon_tl', 'extras.pmp.0.2' … */
+  field: string;
+  old_value: number | string | boolean | null;
+  new_value: number | string | boolean | null;
+  created_at: string;
+  profiles?: Pick<Profile, 'full_name'> | null;
+}
+
 export const MOVEMENT_LABELS: Record<MovementType, string> = {
   satis: 'Satış',
   alim: 'Alım',

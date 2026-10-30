@@ -149,6 +149,10 @@ export function VardiyaDefteri() {
                 feedback.press();
                 router.push({ pathname: '/(admin)/vardiya-detay', params: { id: b.shift.id } });
               }}
+              onPompa={() => {
+                feedback.press();
+                router.push({ pathname: '/(admin)/pompa', params: { id: b.shift.id } });
+              }}
             />
           ))
         )}
@@ -162,10 +166,12 @@ function VardiyaBlogu({
   block,
   highlight,
   onPress,
+  onPompa,
 }: {
   block: ShiftBlock;
   highlight: string | null;
   onPress: () => void;
+  onPompa: () => void;
 }) {
   const { shift, sold, ckn, revenue } = block;
   const open = !shift.ended_at;
@@ -184,6 +190,10 @@ function VardiyaBlogu({
           {formatDateKey(toDateKey(shift.started_at))} · {formatTime(shift.started_at)}–
           {shift.ended_at ? formatTime(shift.ended_at) : 'sürüyor'}
         </Text>
+        <Pressable onPress={onPompa} hitSlop={8} style={styles.pompaLink}>
+          <Ionicons name="speedometer-outline" size={14} color={colors.primary} />
+          <Text style={styles.pompaText}>2. Sayfa</Text>
+        </Pressable>
       </View>
 
       <View style={[styles.tRow, styles.blockHeadRow]}>
@@ -369,6 +379,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.text,
+  },
+  pompaLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+  },
+  pompaText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
   },
   blockHeadRow: {
     paddingHorizontal: 10,
