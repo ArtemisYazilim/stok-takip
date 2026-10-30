@@ -27,6 +27,8 @@ export const colors = {
   border: '#e2e6ee',
   text: '#101828',
   textMuted: '#667085',
+  /** Açılır pencerenin arkasını karartır. */
+  overlay: 'rgba(16, 24, 40, 0.45)',
 };
 
 export function Screen({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
