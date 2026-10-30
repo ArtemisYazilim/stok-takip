@@ -1,13 +1,12 @@
-import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { Button, Card, Input, ProductThumb, Screen, SectionTitle, colors } from '@/components/ui';
+import { Button, Card, Input, Screen, SectionTitle, colors } from '@/components/ui';
 import { confirmAction, showAlert } from '@/lib/alerts';
 import { feedback } from '@/lib/feedback';
 import { formatQty, parseNumberInput } from '@/lib/format';
-import { PRODUCT_IMAGE_BUCKET, uploadProductImage } from '@/lib/storage';
+import { PRODUCT_IMAGE_BUCKET } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type { Product } from '@/lib/types';
 import { useAuth } from '@/providers/auth-provider';
@@ -65,16 +64,6 @@ export default function ProductEditScreen() {
   const [returnQty, setReturnQty] = useState('');
   const [adjustTarget, setAdjustTarget] = useState('');
 
-  // Fotoğraf: currentImageUrl kayıtlı URL; photoBase64 yeni seçilen görsel.
-  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
-  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
-  const [photoMime, setPhotoMime] = useState<string | undefined>();
-  const [photoPreviewUri, setPhotoPreviewUri] = useState<string | null>(null);
-  const [removePhoto, setRemovePhoto] = useState(false);
-
-  const shownImage = photoPreviewUri ?? (removePhoto ? null : currentImageUrl);
-  const hasPhoto = !!shownImage;
-
   useEffect(() => {
     if (!id) return;
     supabase
@@ -90,50 +79,8 @@ export default function ProductEditScreen() {
         setPrice(String(p.sale_price));
         setMinStock(String(p.min_stock));
         setActive(p.active);
-        setCurrentImageUrl(p.image_url);
       });
   }, [id]);
-
-  async function pickPhoto(source: 'camera' | 'library') {
-    const perm =
-      source === 'camera'
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      showAlert(
-        'İzin gerekli',
-        source === 'camera'
-          ? 'Fotoğraf çekmek için kamera izni verin.'
-          : 'Fotoğraf seçmek için galeri izni verin.',
-      );
-      return;
-    }
-    const opts: ImagePicker.ImagePickerOptions = {
-      mediaTypes: 'images',
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.6,
-      base64: true,
-    };
-    const res =
-      source === 'camera'
-        ? await ImagePicker.launchCameraAsync(opts)
-        : await ImagePicker.launchImageLibraryAsync(opts);
-    if (res.canceled || !res.assets?.[0]?.base64) return;
-    const a = res.assets[0];
-    setPhotoBase64(a.base64 ?? null);
-    setPhotoMime(a.mimeType ?? 'image/jpeg');
-    setPhotoPreviewUri(a.uri);
-    setRemovePhoto(false);
-    feedback.press();
-  }
-
-  function clearPhoto() {
-    setPhotoBase64(null);
-    setPhotoMime(undefined);
-    setPhotoPreviewUri(null);
-    setRemovePhoto(true);
-  }
 
   async function handleSave() {
     const priceNum = parseNumberInput(price) ?? 0;
@@ -145,8 +92,6 @@ export default function ProductEditScreen() {
     }
     setBusy(true);
     try {
-      let productId = id ?? null;
-
       if (isNew) {
         const stockNum = parseNumberInput(initialStock) ?? 0;
         const depotNum = parseNumberInput(initialDepot) ?? 0;
@@ -156,7 +101,7 @@ export default function ProductEditScreen() {
           .select()
           .single();
         if (error) throw error;
-        productId = (data as Product).id;
+        const productId = (data as Product).id;
         const opening = [
           { type: 'alim', qty: stockNum },
           { type: 'depo_alim', qty: depotNum },
@@ -178,14 +123,6 @@ export default function ProductEditScreen() {
           .update({ name: name.trim(), sale_price: priceNum, min_stock: minNum, active })
           .eq('id', id);
         if (error) throw error;
-      }
-
-      // Fotoğraf değişikliğini uygula.
-      if (productId && photoBase64) {
-        const url = await uploadProductImage(productId, photoBase64, photoMime);
-        await supabase.from('products').update({ image_url: url }).eq('id', productId);
-      } else if (productId && removePhoto) {
-        await supabase.from('products').update({ image_url: null }).eq('id', productId);
       }
 
       feedback.success();
@@ -321,7 +258,7 @@ export default function ProductEditScreen() {
     setBusy(true);
     const { error } = await supabase.rpc('admin_delete_product', { target_id: id });
     if (!error) {
-      // Fotoğrafı Storage'dan kaldır; kova/politika kurulu değilse sessizce geçilir.
+      // Eski sürümde yüklenmiş fotoğraf kalmasın; kova/politika kurulu değilse sessizce geçilir.
       await supabase.storage.from(PRODUCT_IMAGE_BUCKET).remove([id]);
     }
     setBusy(false);
@@ -340,26 +277,6 @@ export default function ProductEditScreen() {
         <Text style={styles.title}>{isNew ? 'Yeni Ürün' : 'Ürünü Düzenle'}</Text>
 
         <Card style={{ gap: 12 }}>
-          <View style={styles.photoRow}>
-            <ProductThumb uri={shownImage} size={84} />
-            <View style={styles.photoActions}>
-              <Button
-                title="Kamera"
-                variant="ghost"
-                icon="camera-outline"
-                onPress={() => pickPhoto('camera')}
-              />
-              <Button
-                title="Galeriden Seç"
-                variant="ghost"
-                icon="image-outline"
-                onPress={() => pickPhoto('library')}
-              />
-              {hasPhoto ? (
-                <Button title="Fotoğrafı Kaldır" variant="ghost" icon="trash-outline" onPress={clearPhoto} />
-              ) : null}
-            </View>
-          </View>
           <Input label="Ürün adı" value={name} onChangeText={setName} placeholder="ör. Motor Yağı 4L" />
           <Input
             label="Satış fiyatı (₺)"
@@ -499,15 +416,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     color: colors.text,
-  },
-  photoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  photoActions: {
-    flex: 1,
-    gap: 8,
   },
   switchRow: {
     flexDirection: 'row',

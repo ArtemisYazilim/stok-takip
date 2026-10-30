@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -98,24 +97,6 @@ export function Button({
   );
 }
 
-/** Ürün fotoğrafı küçük resmi; fotoğraf yoksa kutu ikonu gösterir. */
-export function ProductThumb({ uri, size = 48 }: { uri?: string | null; size?: number }) {
-  return (
-    <View style={[styles.thumb, { width: size, height: size, borderRadius: size * 0.22 }]}>
-      {uri ? (
-        <Image
-          source={{ uri }}
-          style={{ width: size, height: size }}
-          contentFit="cover"
-          transition={150}
-        />
-      ) : (
-        <Ionicons name="cube-outline" size={Math.round(size * 0.5)} color={colors.textMuted} />
-      )}
-    </View>
-  );
-}
-
 interface InputProps extends TextInputProps {
   label?: string;
 }
@@ -186,14 +167,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 15,
-  },
-  thumb: {
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
   },
   inputLabel: {
     fontSize: 13,

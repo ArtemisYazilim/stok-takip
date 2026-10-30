@@ -2,7 +2,7 @@
 
 İşletme yan satış (motor yağı, antifriz vb.) stok ve vardiya takibi uygulaması.
 
-- **Admin**: raf (dışarıdaki) ve **depo** stokunu görür, ürüne **fotoğraf** ekler, depoya/rafa alım girer, raf veya depo stokunu düzeltir, vardiya raporlarını ve hareket geçmişini izler, çalışan hesabı açar. Vardiya kapanınca **Bildirim** sekmesine (fark çıksa da çıkmasa da) canlı mesaj düşer.
+- **Admin**: raf (dışarıdaki) ve **depo** stokunu görür, depoya/rafa alım girer, raf veya depo stokunu düzeltir, vardiya raporlarını ve hareket geçmişini izler, çalışan hesabı açar. Vardiya kapanınca **Bildirim** sekmesine (fark çıksa da çıkmasa da) canlı mesaj düşer.
 - **Çalışan**: takvimden nöbet gününü seçip nöbet başlatır, çizelgeye yağ satışlarını (stoktan otomatik düşer) ve pompa sayaçlarını girer, vardiya sonunda sayım yapıp devreder. Sayım ile sistem stoku tutmazsa fark admin panelinde görünür.
 - **Geri bildirim**: satış, vardiya kapatma ve hatalarda ses + telefon titreşimi (haptics) verilir.
 
